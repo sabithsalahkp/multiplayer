@@ -1,8 +1,8 @@
 {
-  "name": "playverse-premium-v6",
-  "version": "6.0.0",
+  "name": "playverse-premium-v7",
+  "version": "7.0.0",
   "private": true,
-  "description": "Premium multiplayer Snakes & Ladders with animation-locked turns, Tic Tac Toe and Word Search",
+  "description": "Classic premium multiplayer Snakes & Ladders with locked animated turns, Tic Tac Toe and 60-second turn-based Word Search",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

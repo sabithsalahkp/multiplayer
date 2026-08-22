@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 const colors=['#ff3bbd','#34d9ff','#62ef8e','#ffd15c','#9a70ff','#ff735d'];
 const gameViews={snakes:$('snakesView'),tictactoe:$('tttView'),wordsearch:$('wordView')};
 let roomState=null, stickerList=[], appSettings={minPlayers:2,maxPlayers:6,exactRollToWin:true,extraTurnOnSix:false,stickerPopupMs:3000,stickerCooldownMs:900,soundDefaultOn:true};
-let lastSnakesMove=0, animatingMove=false, visualPositions=new Map(), pendingSnakeWinner=null, wordSelectionStart=null;
+let lastSnakesMove=0, animatingMove=false, visualPositions=new Map(), pendingSnakeWinner=null, wordSelectionStart=null, lastWordTickSecond=null;
 
 // ---------- AUDIO ----------
 let audioCtx=null, master=null, sfxOn=true, speakerOn=true;
@@ -108,10 +108,13 @@ function drawLadder(A,B,seed){
 }
 function drawSnake(A,B,seed){
   const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy),px=-dy/len,py=dx/len;
-  const sway=62+(seed%4)*11;
-  const c1={x:A.x+dx*.24+px*sway,y:A.y+dy*.24+py*sway};
-  const c2={x:A.x+dx*.62-px*sway*.82,y:A.y+dy*.62-py*sway*.82};
-  const d=`M ${A.x} ${A.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${B.x} ${B.y}`;
+  const sway=70+(seed%4)*12;
+  const mid={x:A.x+dx*.5,y:A.y+dy*.5};
+  const c1={x:A.x+dx*.16+px*sway,y:A.y+dy*.16+py*sway};
+  const c2={x:A.x+dx*.34-px*sway*.72,y:A.y+dy*.34-py*sway*.72};
+  const c3={x:A.x+dx*.66+px*sway*.78,y:A.y+dy*.66+py*sway*.78};
+  const c4={x:A.x+dx*.84-px*sway*.58,y:A.y+dy*.84-py*sway*.58};
+  const d=`M ${A.x} ${A.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${mid.x} ${mid.y} C ${c3.x} ${c3.y}, ${c4.x} ${c4.y}, ${B.x} ${B.y}`;
   const palettes=[['#73d13d','#237d39','#103f2a'],['#ff785c','#c93c3c','#69222c'],['#916cff','#5536aa','#2b205f'],['#f6c84a','#b97921','#5d3816']];
   const pal=palettes[seed%palettes.length],id=`snakeGrad${seed}`;
   const defs=pathsLayer.querySelector('defs'),grad=svgEl('linearGradient',{id,x1:'0',y1:'0',x2:'1',y2:'1'});
@@ -170,8 +173,18 @@ function renderTTT(){if(!roomState)return;const t=roomState.ttt,active=roomState
 tttBoard.addEventListener('click',async e=>{const c=e.target.closest('.ttt-cell');if(!c||!roomState)return;ensureAudio();const r=await ackEmit('ttt:move',{cell:Number(c.dataset.cell)});if(r.ok)sfx('mark');else toast(r.error||'Invalid move')});tttRestartBtn.addEventListener('click',async()=>{const r=await ackEmit('ttt:restart');if(!r.ok)toast(r.error||'Could not restart')});
 
 // ---------- WORD SEARCH ----------
-const wordBoard=$('wordBoard'),wordList=$('wordList'),wordScores=$('wordScores'),wordTurnText=$('wordTurnText'),wordSelectionText=$('wordSelectionText'),wordStatus=$('wordStatus'),newWordsBtn=$('newWordsBtn');
+const wordBoard=$('wordBoard'),wordList=$('wordList'),wordScores=$('wordScores'),wordTurnText=$('wordTurnText'),wordSelectionText=$('wordSelectionText'),wordStatus=$('wordStatus'),newWordsBtn=$('newWordsBtn'),wordTimerText=$('wordTimerText'),wordTimerBar=$('wordTimerBar');
 function clientLine(start,end,size){start=Number(start);end=Number(end);const r0=Math.floor(start/size),c0=start%size,r1=Math.floor(end/size),c1=end%size,dr=Math.sign(r1-r0),dc=Math.sign(c1-c0),rr=Math.abs(r1-r0),cc=Math.abs(c1-c0);if(start===end)return[start];if(!(r0===r1||c0===c1||rr===cc))return null;const path=[];for(let i=0;i<Math.max(rr,cc)+1;i++)path.push((r0+dr*i)*size+(c0+dc*i));return path}
+function updateWordTimer(){
+  if(!roomState?.wordsearch||!wordTimerText||!wordTimerBar)return;
+  const w=roomState.wordsearch,total=Math.max(1000,w.turnDurationMs||60000);
+  if(roomState.activeGame!=='wordsearch'||roomState.players.length<2||w.status==='won'||!w.turnDeadline){wordTimerText.textContent='01:00';wordTimerBar.style.width='100%';wordTimerText.classList.remove('urgent');lastWordTickSecond=null;return;}
+  const left=Math.max(0,w.turnDeadline-Date.now()),sec=Math.ceil(left/1000),pct=Math.max(0,Math.min(100,left/total*100));
+  wordTimerText.textContent=`00:${String(sec).padStart(2,'0')}`;wordTimerBar.style.width=pct+'%';wordTimerText.classList.toggle('urgent',sec<=10);wordTimerBar.classList.toggle('urgent',sec<=10);
+  const current=roomState.players[w.turnIndex];
+  if(current?.id===socket.id&&sec<=10&&sec>0&&sec!==lastWordTickSecond){lastWordTickSecond=sec;if(sfxOn){tone(sec<=5?820:610,.055,'square',sec<=5?.16:.09)}}
+}
+setInterval(updateWordTimer,250);
 function renderWordSearch(){
   if(!roomState)return;const w=roomState.wordsearch;if(!w)return;wordStatus.textContent=w.status==='won'?'FINISHED':'LIVE';const current=roomState.players[w.turnIndex],meTurn=w.status!=='won'&&roomState.players.length>=2&&current?.id===socket.id;wordTurnText.textContent=roomState.players.length<2?'Waiting for 2 players':w.status==='won'?'Round finished':meTurn?'Your turn':`${current?.name||'Player'}'s turn`;if(wordSelectionStart===null)wordSelectionText.textContent=meTurn?'Tap the first letter of a word.':'Wait for your turn.';
   if(wordBoard.dataset.seed!==String(w.seed)){wordBoard.dataset.seed=String(w.seed);wordBoard.innerHTML='';wordSelectionStart=null;w.grid.forEach((ch,i)=>{const b=document.createElement('button');b.className='word-cell';b.type='button';b.dataset.index=i;b.textContent=ch;b.setAttribute('aria-label',`Letter ${ch}`);wordBoard.appendChild(b)})}
@@ -180,10 +193,10 @@ function renderWordSearch(){
   if(wordSelectionStart!==null)wordBoard.children[wordSelectionStart]?.classList.add('start');
   wordList.innerHTML='';w.words.forEach(word=>{const d=document.createElement('div'),f=w.found.find(x=>x.word===word);d.className='word-chip'+(f?' found':'');d.textContent=word;wordList.appendChild(d)});
   wordScores.innerHTML='';roomState.players.forEach(p=>{const score=w.found.filter(f=>f.playerId===p.id).length,row=document.createElement('div');row.className='score-row';row.innerHTML=`<i class="score-dot" style="--score:${colors[p.colorIndex%colors.length]}"></i><b></b><span>${score}</span>`;row.querySelector('b').textContent=p.name;wordScores.appendChild(row)});
-  newWordsBtn.classList.toggle('hidden',roomState.hostId!==socket.id);
+  newWordsBtn.classList.toggle('hidden',roomState.hostId!==socket.id);updateWordTimer();
 }
 wordBoard.addEventListener('click',async e=>{const c=e.target.closest('.word-cell');if(!c||!roomState)return;const w=roomState.wordsearch,current=roomState.players[w.turnIndex];if(roomState.players.length<2)return toast('Need 2 players.');if(w.status==='won')return toast('Round finished.');if(current?.id!==socket.id)return toast('Wait for your turn.');const idx=Number(c.dataset.index);ensureAudio();if(wordSelectionStart===null){wordSelectionStart=idx;wordSelectionText.textContent='Now tap the last letter.';renderWordSearch();return}const start=wordSelectionStart,line=clientLine(start,idx,w.size);if(!line){wordSelectionStart=idx;wordSelectionText.textContent='Straight lines only. New first letter selected.';sfx('wrong');renderWordSearch();return}for(const i of line)wordBoard.children[i]?.classList.add('preview');const r=await ackEmit('wordsearch:select',{start,end:idx});wordSelectionStart=null;if(!r.ok){sfx('wrong');wordSelectionText.textContent=r.error||'Not a word.';toast(r.error||'Not a word.');renderWordSearch()}else{sfx('word');wordSelectionText.textContent=`Found ${r.word}!`;confettiBurst(18)}});
-newWordsBtn.addEventListener('click',async()=>{const r=await ackEmit('wordsearch:new');if(!r.ok)toast(r.error||'Could not make a new board');else{wordSelectionStart=null;sfx('join')}});socket.on('wordsearch:found',d=>{if(d.playerId!==socket.id){sfx('word');toast(`${roomState?.players.find(p=>p.id===d.playerId)?.name||'Player'} found ${d.word}`)}});
+newWordsBtn.addEventListener('click',async()=>{const r=await ackEmit('wordsearch:new');if(!r.ok)toast(r.error||'Could not make a new board');else{wordSelectionStart=null;sfx('join')}});socket.on('wordsearch:found',d=>{lastWordTickSecond=null;if(d.playerId!==socket.id){sfx('word');toast(`${roomState?.players.find(p=>p.id===d.playerId)?.name||'Player'} found ${d.word}`)}});socket.on('wordsearch:timeout',d=>{wordSelectionStart=null;lastWordTickSecond=null;sfx('wrong');toast(`${d.name||'Player'} ran out of time — turn passed.`);renderWordSearch()});
 
 // ---------- WIN FX ----------
 socket.on('game:win',d=>{if(d.game==='snakes'){pendingSnakeWinner=d;if(!animatingMove&&roomState?.snakes?.lastMove?.id===d.moveId){pendingSnakeWinner=null;setTimeout(()=>showWinner(roomState.players.find(x=>x.id===d.winnerId)?.name||'Player','Snakes & Ladders'),500)}return}setTimeout(()=>{if(d.draw)showWinner('DRAW','Word Search');else showWinner(roomState?.players.find(x=>x.id===d.winnerId)?.name||'Player',displayGameName(d.game))},500)});

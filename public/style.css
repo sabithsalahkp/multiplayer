@@ -54,3 +54,30 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 .turn-card{width:100%;padding:12px 10px;border-radius:14px;background:#0d0d0c;border:1px solid #4d3d28;display:grid;gap:3px}.turn-card span{font-size:8px;letter-spacing:.14em;color:#9b835c;font-weight:1000}.turn-card b{font-size:15px;color:#f3e4c7}.dice-panel>small{min-height:32px;color:#a6977e}
 @media(max-width:720px){#snakesView .board-frame{padding:9px;border-radius:20px}.dice-panel{padding:11px!important}.dice-stage{height:120px;grid-row:1/5}.dice-cube{width:78px;height:78px}.face-1{transform:translateZ(39px)}.face-6{transform:rotateY(180deg) translateZ(39px)}.face-3{transform:rotateY(90deg) translateZ(39px)}.face-4{transform:rotateY(-90deg) translateZ(39px)}.face-2{transform:rotateX(90deg) translateZ(39px)}.face-5{transform:rotateX(-90deg) translateZ(39px)}.die-face{border-radius:15px}.dice-shadow{width:75px;bottom:9px}.turn-card{padding:9px}.turn-card b{font-size:13px}#snakesView .roll-btn{height:52px}.dice-panel>small{display:block}.snakes-layout{gap:11px}}
 @media(max-width:390px){.dice-cube{width:70px;height:70px}.face-1{transform:translateZ(35px)}.face-6{transform:rotateY(180deg) translateZ(35px)}.face-3{transform:rotateY(90deg) translateZ(35px)}.face-4{transform:rotateY(-90deg) translateZ(35px)}.face-2{transform:rotateX(90deg) translateZ(35px)}.face-5{transform:rotateX(-90deg) translateZ(35px)}#snakesView .piece{width:6.4%}}
+
+
+/* ===== PLAYVERSE V7 — OLD-SCHOOL CLASSIC BOARD + WORD TURN CLOCK ===== */
+#snakesView .snakes-layout{grid-template-columns:minmax(0,1fr) 255px;align-items:stretch}
+#snakesView .board-frame{padding:18px;border-radius:27px;background:linear-gradient(145deg,#69451f 0%,#bd8a4d 12%,#7c5128 24%,#3f2814 43%,#9d6a35 61%,#d2a15d 78%,#5c391d 100%);box-shadow:0 30px 70px #0009,inset 0 0 0 2px #24150b,inset 0 0 0 7px #e6bd7860,inset 0 0 32px #1f100780}
+#snakesView .board-frame:before{inset:8px;border-radius:20px;border-color:#f6d79666}
+#snakesView .snakes-board{border-radius:8px;background:#efe0bf;box-shadow:inset 0 0 0 2px #5b3c20aa,inset 0 0 24px #6b472522,0 6px 16px #1d0e0875}
+#snakesView .board-cell{font-family:Georgia,'Times New Roman',serif;font-weight:700;color:#49351f;text-shadow:0 1px #fff9;border-right:1px solid #755b3d2b;border-bottom:1px solid #755b3d2b;background:linear-gradient(145deg,#f6edd9,#e4d3b1)}
+#snakesView .board-cell.light{background:linear-gradient(145deg,#f7efd9,#e6d5b3)}
+#snakesView .board-cell.dark{background:linear-gradient(145deg,#e9dfc8,#d6c5a2);color:#4c3823;text-shadow:0 1px #fff7}
+#snakesView .board-cell:nth-child(4n+1){background:linear-gradient(145deg,#f4e8ca,#dfcca7)}
+#snakesView .board-cell:nth-child(4n+2){background:linear-gradient(145deg,#eae0c8,#d9c7a4)}
+#snakesView .board-cell:nth-child(4n+3){background:linear-gradient(145deg,#f1e4c7,#dfc9a2)}
+#snakesView .board-cell:nth-child(4n){background:linear-gradient(145deg,#e8dcc2,#d5c09b)}
+#snakesView .board-cell:first-child,#snakesView .board-cell:last-child{background:linear-gradient(145deg,#f7dd88,#cda24d)!important;color:#35250f!important}
+#snakesView .board-cell:first-child:after{content:'FINISH';position:absolute;right:4px;bottom:3px;font:900 7px/1 system-ui;letter-spacing:.08em;color:#6c4b17}
+#snakesView .board-cell:last-child:after{content:'START';position:absolute;right:4px;bottom:3px;font:900 7px/1 system-ui;letter-spacing:.08em;color:#6c4b17}
+#snakesView .piece{width:5.35%;height:7.7%;filter:drop-shadow(0 5px 3px #27170880)}
+#snakesView .piece .head{box-shadow:inset -3px -5px 6px #0004,inset 3px 3px 5px #fff6}
+#snakesView .piece.current{animation:currentPawnV7 1.05s ease-in-out infinite;filter:drop-shadow(0 0 7px #ffe399) drop-shadow(0 0 14px #e6ae41aa) drop-shadow(0 5px 3px #27170880)}
+@keyframes currentPawnV7{50%{transform:translate(-50%,-89%) scale(1.055)}}
+.snake-group{animation:snakeAliveV7 3.2s ease-in-out infinite alternate}.snake-body-under{stroke-width:36}.snake-body{stroke-width:28}.snake-belly{stroke-width:7;stroke-dasharray:18 14}.snake-scales{stroke-width:3;stroke-dasharray:3 13}.snake-head{stroke-width:4}.snake-tongue{stroke-width:4.3}
+@keyframes snakeAliveV7{0%{transform:translate(-.8px,.7px) rotate(-.13deg)}50%{transform:translate(.5px,-.8px) rotate(.05deg)}100%{transform:translate(1px,-1.4px) rotate(.16deg)}}
+#snakesView .dice-panel{background:linear-gradient(160deg,#251c13,#100d0a 62%,#2d2014);border-color:#80613d;box-shadow:inset 0 1px #fff2,0 18px 38px #0006}
+#snakesView .turn-card{background:linear-gradient(180deg,#17130f,#0d0b09);border-color:#60482c}
+.word-turn-line{display:flex;align-items:center;justify-content:space-between;gap:12px}.word-turn-line>b{min-width:0}.word-timer-text{font-variant-numeric:tabular-nums;font-size:22px!important;letter-spacing:.05em;color:#75e6ff;background:#091526;border:1px solid #28537a;border-radius:11px;padding:7px 9px;min-width:74px;text-align:center;box-shadow:inset 0 0 16px #1d8aff14}.word-timer-text.urgent{color:#ff8c9d;border-color:#8b3144;animation:timerPulseV7 .72s ease-in-out infinite}.word-timer-track{height:8px;border-radius:999px;background:#07101d;border:1px solid #243754;overflow:hidden;margin:3px 0 2px}.word-timer-track i{display:block;height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,#38dfff,#7964ff);transition:width .25s linear}.word-timer-track i.urgent{background:linear-gradient(90deg,#ffb34d,#ff4c72)}@keyframes timerPulseV7{50%{transform:scale(1.045);box-shadow:0 0 18px #ff536e33}}
+@media(max-width:720px){#snakesView .snakes-layout{grid-template-columns:1fr}.word-turn-line{align-items:center}.word-timer-text{font-size:18px!important;min-width:68px;padding:6px 8px}}

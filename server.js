@@ -22,6 +22,7 @@ let settings = readJson('settings.json', {
 });
 let stickers = readJson('stickers.json', []);
 const rooms = new Map();
+const WORD_TURN_MS = 60_000;
 
 const GAME_PATHS = { snakes: '/snakes', tictactoe: '/tic-tac-toe', wordsearch: '/word-search' };
 const jumps = {
@@ -77,7 +78,7 @@ function makeWordSearch(seed = crypto.randomInt(1, 2**30)){
   }
   const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   for(let r=0;r<size;r++)for(let c=0;c<size;c++)if(!grid[r][c])grid[r][c]=letters[Math.floor(rnd()*letters.length)];
-  return { status:'playing', seed, size, grid:grid.flat(), words:words.map(w=>w.word), answers:words, found:[], turnIndex:0, winnerId:null, round:1 };
+  return { status:'playing', seed, size, grid:grid.flat(), words:words.map(w=>w.word), answers:words, found:[], turnIndex:0, winnerId:null, round:1, turnStartedAt:0, turnDeadline:0, lastTimeoutPlayerId:null };
 }
 
 function initRoom(c, host){
@@ -89,8 +90,36 @@ function initRoom(c, host){
   };
 }
 function pubWordSearch(w){
-  return { status:w.status, seed:w.seed, size:w.size, grid:w.grid, words:w.words, found:w.found, turnIndex:w.turnIndex, winnerId:w.winnerId, round:w.round };
+  return { status:w.status, seed:w.seed, size:w.size, grid:w.grid, words:w.words, found:w.found, turnIndex:w.turnIndex, winnerId:w.winnerId, round:w.round, turnStartedAt:w.turnStartedAt||0, turnDeadline:w.turnDeadline||0, turnDurationMs:WORD_TURN_MS, lastTimeoutPlayerId:w.lastTimeoutPlayerId||null };
 }
+function stopWordTurn(r){
+  if(r?.wordTimer){ clearTimeout(r.wordTimer); r.wordTimer=null; }
+  if(r?.wordsearch){ r.wordsearch.turnStartedAt=0; r.wordsearch.turnDeadline=0; }
+}
+function beginWordTurn(r){
+  if(!r?.wordsearch) return;
+  if(r.wordTimer){ clearTimeout(r.wordTimer); r.wordTimer=null; }
+  const w=r.wordsearch;
+  if(r.activeGame!=='wordsearch'||w.status==='won'||r.players.length<2){ w.turnStartedAt=0; w.turnDeadline=0; return; }
+  w.turnIndex=((w.turnIndex%r.players.length)+r.players.length)%r.players.length;
+  const player=r.players[w.turnIndex];
+  if(!player){ w.turnStartedAt=0; w.turnDeadline=0; return; }
+  w.turnStartedAt=Date.now(); w.turnDeadline=w.turnStartedAt+WORD_TURN_MS; w.lastTimeoutPlayerId=null;
+  const expectedPlayerId=player.id, expectedDeadline=w.turnDeadline;
+  r.wordTimer=setTimeout(()=>{
+    const live=rooms.get(r.code);
+    if(!live||live!==r||live.activeGame!=='wordsearch') return;
+    const ww=live.wordsearch, current=live.players[ww.turnIndex];
+    if(ww.status==='won'||ww.turnDeadline!==expectedDeadline||current?.id!==expectedPlayerId) return;
+    ww.lastTimeoutPlayerId=expectedPlayerId;
+    const timedOutName=current?.name||'Player';
+    ww.turnIndex=(ww.turnIndex+1)%live.players.length;
+    beginWordTurn(live);
+    emitRoom(live);
+    io.to(live.code).emit('wordsearch:timeout',{playerId:expectedPlayerId,name:timedOutName,nextPlayerId:live.players[ww.turnIndex]?.id||null});
+  }, WORD_TURN_MS+80);
+}
+
 function pubRoom(r){
   return {
     code:r.code, hostId:r.hostId, activeGame:r.activeGame, path:GAME_PATHS[r.activeGame], settings:publicSettings(),
@@ -103,11 +132,12 @@ function leaveRoom(socket){
   const idx=r.players.findIndex(p=>p.id===socket.id); if(idx<0) return;
   const [gone]=r.players.splice(idx,1); socket.leave(r.code); socket.data.roomCode=null;
   socket.to(r.code).emit('rtc:peer-left',{peerId:socket.id});
-  if(!r.players.length){ rooms.delete(r.code); return; }
+  if(!r.players.length){ stopWordTurn(r); rooms.delete(r.code); return; }
   if(r.hostId===socket.id) r.hostId=r.players[0].id;
   r.snakes.turnIndex=Math.min(r.snakes.turnIndex,Math.max(0,r.players.length-1));
   r.ttt.turnIndex=Math.min(r.ttt.turnIndex,1);
   r.wordsearch.turnIndex=Math.min(r.wordsearch.turnIndex,Math.max(0,r.players.length-1));
+  if(r.activeGame==='wordsearch') beginWordTurn(r);
   notice(r,`${gone.name} left.`); emitRoom(r);
 }
 function tttWinner(b){ const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; return lines.find(([a,c,d])=>b[a]&&b[a]===b[c]&&b[a]===b[d])||null; }
@@ -127,7 +157,7 @@ function samePath(a,b){ return a.length===b.length&&a.every((v,i)=>v===b[i]); }
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static(PUBLIC_DIR));
-app.get('/health',(_q,res)=>res.json({ok:true,version:'6.0.0'}));
+app.get('/health',(_q,res)=>res.json({ok:true,version:'7.0.0'}));
 app.get('/config',(_q,res)=>res.json({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],settings:publicSettings()}));
 app.get('/api/stickers',(_q,res)=>res.json({ok:true,stickers:publicStickers()}));
 app.get('/admin',(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'admin.html')));
@@ -160,6 +190,7 @@ io.on('connection',socket=>{
     leaveRoom(socket); const p={id:socket.id,name:cleanName(payload.name),colorIndex:r.players.length%6,position:1}; r.players.push(p);
     socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;
     socket.emit('rtc:peers',{peers:r.players.filter(x=>x.id!==socket.id).map(x=>x.id)}); socket.to(c).emit('rtc:peer-joined',{peerId:socket.id});
+    if(r.activeGame==='wordsearch'&&r.players.length>=2&&!r.wordsearch.turnDeadline) beginWordTurn(r);
     notice(r,`${p.name} joined.`); ack({ok:true,room:pubRoom(r)}); emitRoom(r);
   });
   socket.on('room:leave',()=>leaveRoom(socket));
@@ -167,7 +198,10 @@ io.on('connection',socket=>{
   socket.on('game:select',(payload={},ack=()=>{})=>{
     const r=roomOf(socket); if(!r)return ack({ok:false,error:'No room.'}); const game=String(payload.game||'');
     if(!GAME_PATHS[game])return ack({ok:false,error:'Unknown game.'}); if(r.hostId!==socket.id)return ack({ok:false,error:'Only host can switch games.'});
-    r.activeGame=game; emitRoom(r); io.to(r.code).emit('game:selected',{game,path:GAME_PATHS[game]}); ack({ok:true});
+    if(r.activeGame==='wordsearch'&&game!=='wordsearch') stopWordTurn(r);
+    r.activeGame=game;
+    if(game==='wordsearch') beginWordTurn(r);
+    emitRoom(r); io.to(r.code).emit('game:selected',{game,path:GAME_PATHS[game]}); ack({ok:true});
   });
 
   socket.on('snakes:start',(_,ack=()=>{})=>{
@@ -236,10 +270,10 @@ io.on('connection',socket=>{
 
   socket.on('wordsearch:new',(_,ack=()=>{})=>{
     const r=roomOf(socket);if(!r)return ack({ok:false});if(r.hostId!==socket.id)return ack({ok:false,error:'Host only.'});
-    const next=makeWordSearch();next.round=(r.wordsearch?.round||0)+1;r.wordsearch=next;emitRoom(r);ack({ok:true});
+    const next=makeWordSearch();next.round=(r.wordsearch?.round||0)+1;r.wordsearch=next;if(r.activeGame==='wordsearch')beginWordTurn(r);emitRoom(r);ack({ok:true});
   });
   socket.on('wordsearch:select',(payload={},ack=()=>{})=>{
-    const r=roomOf(socket);if(!r)return ack({ok:false});if(r.players.length<2)return ack({ok:false,error:'Need 2 players.'});const w=r.wordsearch;if(w.status==='won')return ack({ok:false,error:'Round finished.'});
+    const r=roomOf(socket);if(!r)return ack({ok:false});if(r.activeGame!=='wordsearch')return ack({ok:false,error:'Word Search is not the active game.'});if(r.players.length<2)return ack({ok:false,error:'Need 2 players.'});const w=r.wordsearch;if(w.status==='won')return ack({ok:false,error:'Round finished.'});if(w.turnDeadline&&Date.now()>w.turnDeadline)return ack({ok:false,error:'Time is up — turn is passing.'});
     const idx=r.players.findIndex(p=>p.id===socket.id);if(idx<0)return ack({ok:false});if(idx!==w.turnIndex)return ack({ok:false,error:'Not your turn.'});
     const pathSel=normalizeSelection(payload.start,payload.end,w.size);if(!pathSel)return ack({ok:false,error:'Pick a straight line.'});
     const answer=w.answers.find(a=>samePath(pathSel,a.path)||samePath([...pathSel].reverse(),a.path));
@@ -248,7 +282,8 @@ io.on('connection',socket=>{
     const scoreCount=id=>w.found.filter(f=>f.playerId===id).length;
     if(w.found.length===w.words.length){
       w.status='won';let best=-1,winner=null;for(const p of r.players){const s=scoreCount(p.id);if(s>best){best=s;winner=p.id}else if(s===best)winner=null;}w.winnerId=winner;
-    } else { w.turnIndex=(w.turnIndex+1)%r.players.length; }
+    } else { w.turnIndex=(w.turnIndex+1)%r.players.length; beginWordTurn(r); }
+    if(w.status==='won') stopWordTurn(r);
     emitRoom(r);io.to(r.code).emit('wordsearch:found',{word:answer.word,playerId:socket.id});ack({ok:true,word:answer.word});
     if(w.status==='won')io.to(r.code).emit('game:win',{game:'wordsearch',winnerId:w.winnerId,draw:!w.winnerId});
   });
@@ -262,4 +297,4 @@ io.on('connection',socket=>{
   socket.on('disconnect',()=>leaveRoom(socket));
 });
 
-server.listen(PORT,()=>console.log(`PlayVerse v5 running on ${PORT}`));
+server.listen(PORT,()=>console.log(`PlayVerse v7 running on ${PORT}`));

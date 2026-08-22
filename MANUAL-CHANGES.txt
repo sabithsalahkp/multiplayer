@@ -1,10 +1,15 @@
-PLAYVERSE V6 - MANUAL STEPS
+PLAYVERSE V7 — MANUAL STEPS
 
 1. Extract this ZIP.
-2. Replace your old GitHub project files with everything from this ZIP.
-3. Commit changes.
-4. Wait for Render to redeploy and show Live.
-5. Open /health and confirm version 6.0.0.
+2. Replace the old files in your existing GitHub repo with everything in this ZIP.
+3. Commit the changes.
+4. Wait for Render to redeploy.
+5. Open /health and confirm version 7.0.0.
 
 Nothing else is required.
-NO database. NO admin password. NO environment variable. NO persistent disk.
+No database.
+No admin password.
+No environment variable.
+
+WORD SEARCH
+Each active player gets 60 seconds. If the timer reaches zero, the turn automatically passes to the next player.
