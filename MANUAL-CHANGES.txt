@@ -1,31 +1,25 @@
-MANUAL STEPS — SHORT VERSION
+PLAYVERSE V5 — MANUAL STEPS
 
-FIRST PUBLISH
-1. Extract ZIP.
-2. Upload ALL files/folders to GitHub repo root.
-3. Render -> New -> Blueprint.
-4. Select repo -> Deploy.
-5. Wait until Live.
+FIRST DEPLOY
+1. Extract this ZIP.
+2. Upload ALL files/folders to the ROOT of your GitHub repo.
+3. Render -> New -> Blueprint -> choose the repo.
+4. Deploy and wait until it says Live.
+5. Open /health. It should show: {"ok":true,"version":"5.0.0"}
 
-NO NEED:
-- database
-- admin password
-- environment variables
-- persistent disk
+UPDATING AN OLD VERSION
+1. Replace the old repo files with everything from this ZIP.
+2. Commit the changes.
+3. Render redeploys automatically.
 
-URLS
-/               landing / room join
-/snakes         Snakes & Ladders
-/tic-tac-toe    Tic Tac Toe
-/arrow-puzzle   Arrow Puzzle
-/carrom         Carrom Pool
-/admin          live admin
-/health         server health check
+NO EXTRA SETUP
+- No database
+- No admin password
+- No environment variable
+- No persistent disk
 
-CHANGE MEMES PERMANENTLY
-Open data/stickers.json in GitHub and replace a name/url, or add another entry with unique id and order.
+PERMANENT SETTINGS
+Edit data/settings.json in GitHub.
 
-CHANGE DEFAULTS PERMANENTLY
-Open data/settings.json.
-
-After GitHub commit, Render auto-redeploys.
+MEME STICKERS
+Edit data/stickers.json in GitHub.

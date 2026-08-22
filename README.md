@@ -1,53 +1,36 @@
-# PlayVerse v4 — Multiplayer Game Hub
+# PlayVerse V5 — 3 Game Edition
 
-One Node + Socket.IO app, one Render service, no database, no admin password, no environment variables required.
+A single Node + Socket.IO web app for Chrome/mobile with:
 
-## Games
+- Snakes & Ladders — animated chess-style pawns, smooth real pip dice, snakes, ladders, sound effects
+- Tic Tac Toe — fixed 3×3 board that never resizes when X/O appears
+- Word Search — turn-by-turn multiplayer; tap first letter then last letter, no dragging needed
+- Create/join room codes
+- 2–6 players in a room
+- Live browser voice chat with mic and speaker controls
+- SFX on by default
+- Meme reaction tray below the game area
+- Open `/admin` live settings page
+- No database, no admin password, no environment variables required
 
-- Premium animated Snakes & Ladders
-- Tic Tac Toe
-- Arrow Puzzle: 12 sequential levels (Hard → Very Hard → Extreme)
-- Carrom Pool with server-side real-time physics
+## Publish with GitHub + Render
 
-## Shared room features
+1. Upload every file/folder in this project to the root of one GitHub repository.
+2. In Render choose **New > Blueprint** and select the repository.
+3. Render reads `render.yaml` and deploys the web service.
+4. Wait until the service says **Live**.
+5. Open the Render URL in Chrome.
 
-- Create / join room code
-- 2–6 room members
-- Live microphone voice chat
-- Mic mute/unmute
-- Speaker on/off
-- Loud game sound effects on by default
-- Image-based meme sticker tray directly below the game board
-- Sticker click broadcasts to everyone in the room, including sender
-- Open `/admin` live-control page
-- Game pages use one domain with URL changes:
-  - `/snakes`
-  - `/tic-tac-toe`
-  - `/arrow-puzzle`
-  - `/carrom`
-
-## Publish on GitHub + Render
-
-1. Extract this ZIP.
-2. Upload every file/folder inside it to the root of one GitHub repo.
-3. In Render choose New > Blueprint.
-4. Select the repo.
-5. Render reads `render.yaml` and deploys the Node web service.
-6. Wait for Live.
-7. Open the Render URL.
-
-No environment variables are needed.
+Routes:
+- `/` or `/snakes` — game room
+- `/tic-tac-toe` — same room, Tic Tac Toe view
+- `/word-search` — same room, Word Search view
+- `/admin` — live settings
+- `/health` — deployment health check
 
 ## Permanent manual changes
 
-- Stickers: edit `data/stickers.json` in GitHub.
-- Game defaults: edit `data/settings.json` in GitHub.
-- Commit; Render redeploys automatically.
+- `data/settings.json` — default player limits / dice rules / sticker timing / default sound
+- `data/stickers.json` — meme reaction list
 
-The `/admin` page changes settings/sticker on-off/name only in the currently running server memory. Those live changes reset after redeploy/restart.
-
-## Browser notes
-
-- Use the HTTPS Render URL so microphone permission works.
-- Browser audio cannot legally autoplay before user interaction; the first tap/click unlocks the already-enabled game sound system.
-- WebRTC uses public STUN. Some restrictive mobile networks can require TURN for voice, but no TURN is needed for normal testing/publishing.
+Commit changes to GitHub and Render redeploys automatically.

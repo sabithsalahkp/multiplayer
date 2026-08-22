@@ -3,109 +3,121 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0d16" />
-  <meta name="description" content="Premium multiplayer game hub with Snakes & Ladders, Tic Tac Toe, Arrow Puzzle, Carrom Pool, live voice and meme stickers." />
+  <meta name="theme-color" content="#090d18" />
+  <meta name="description" content="Premium multiplayer Snakes & Ladders, Tic Tac Toe and Word Search with live voice and meme reactions." />
   <title>PlayVerse</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div><div class="noise"></div>
-  <main id="app" class="app-shell">
-    <section id="landing" class="landing-panel">
-      <div class="brand-mark">P</div>
-      <div class="brand-copy"><span class="eyebrow">MULTIPLAYER GAME NIGHT</span><h1>Play<span>Verse</span></h1><p>Play, talk, laugh, repeat.</p></div>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><div class="grain"></div>
+  <main class="app-shell">
+    <section id="landing" class="landing">
+      <div class="hero-copy">
+        <div class="logo">P</div>
+        <span class="eyebrow">PRIVATE MULTIPLAYER GAME NIGHT</span>
+        <h1>Play<span>Verse</span></h1>
+        <p>Three polished games. One room. Live voice. Meme reactions.</p>
+      </div>
       <div class="landing-grid">
-        <div class="join-card">
-          <div class="connection"><span id="connectionDot"></span><b id="connectionText">Connecting…</b></div>
+        <div class="join-card glass">
+          <div class="connection"><i></i><b id="connectionText">Connecting…</b></div>
           <label><span>Your name</span><input id="nameInput" maxlength="20" autocomplete="nickname" placeholder="Enter your name" /></label>
           <button id="createBtn" class="primary" disabled>Create Room</button>
-          <div class="split"><span></span><small>OR JOIN</small><span></span></div>
+          <div class="or"><i></i><small>OR JOIN</small><i></i></div>
           <div class="join-row"><input id="roomInput" maxlength="6" autocomplete="off" placeholder="ROOM CODE" /><button id="joinBtn" class="secondary" disabled>Join</button></div>
           <p id="landingError" class="error" aria-live="polite"></p>
         </div>
-        <div class="game-preview-grid" aria-label="Available games">
-          <article><div class="preview-art snakes-art"><i></i><i></i><i></i></div><b>Snakes & Ladders</b><small>Animated board race</small></article>
-          <article><div class="preview-art ttt-art">XO</div><b>Tic Tac Toe</b><small>Fast head-to-head</small></article>
-          <article><div class="preview-art puzzle-art">↗ ↓ ←</div><b>Arrow Puzzle</b><small>Hard → Extreme</small></article>
-          <article><div class="preview-art carrom-art"><i></i><i></i><i></i><i></i></div><b>Carrom Pool</b><small>Real-time physics</small></article>
+        <div class="preview-grid">
+          <article class="preview-card"><div class="preview-icon snake-icon">🐍</div><b>Snakes & Ladders</b><small>Animated race</small></article>
+          <article class="preview-card"><div class="preview-icon xo-icon">XO</div><b>Tic Tac Toe</b><small>Fixed 3×3 duel</small></article>
+          <article class="preview-card"><div class="preview-icon word-icon">WORD</div><b>Word Search</b><small>Turn-by-turn hunt</small></article>
         </div>
       </div>
     </section>
 
     <section id="gameShell" class="game-shell hidden">
-      <header class="topbar">
-        <div class="brand-mini"><div class="brand-mark small">P</div><div><b>PlayVerse</b><small id="activeGameLabel">Snakes & Ladders</small></div></div>
-        <div class="room-chip"><small>ROOM</small><b id="roomCode">------</b><button id="copyCodeBtn" title="Copy room code">⧉</button></div>
+      <header class="topbar glass">
+        <div class="brand-mini"><div class="logo small">P</div><div><b>PlayVerse</b><small id="activeGameLabel">Snakes & Ladders</small></div></div>
+        <div class="room-chip"><small>ROOM</small><b id="roomCode">------</b><button id="copyCodeBtn" type="button" title="Copy room code">⧉</button></div>
         <div class="top-actions">
-          <button id="micBtn" class="icon-btn"><span>🎙</span><b>MIC OFF</b></button>
-          <button id="speakerBtn" class="icon-btn on"><span>🔊</span><b>SPEAKER ON</b></button>
-          <button id="soundBtn" class="icon-btn on"><span>♪</span><b>SFX ON</b></button>
-          <button id="leaveBtn" class="icon-btn danger"><span>↗</span><b>LEAVE</b></button>
+          <button id="micBtn" class="icon-btn" type="button"><span>🎙</span><b>MIC OFF</b></button>
+          <button id="speakerBtn" class="icon-btn on" type="button"><span>🔊</span><b>SPEAKER ON</b></button>
+          <button id="soundBtn" class="icon-btn on" type="button"><span>♪</span><b>SFX ON</b></button>
+          <button id="leaveBtn" class="icon-btn danger" type="button"><span>↗</span><b>LEAVE</b></button>
         </div>
       </header>
 
       <div class="workspace">
-        <aside class="sidebar left-sidebar">
-          <div class="side-head"><span>GAMES</span><small>Host can switch</small></div>
+        <aside class="sidebar glass">
+          <div class="side-title"><span>GAMES</span><small>Host switches</small></div>
           <nav id="gameNav" class="game-nav">
-            <button data-game="snakes" class="active"><span>🐍</span><div><b>Snakes & Ladders</b><small>2–6 players</small></div></button>
-            <button data-game="tictactoe"><span>✕</span><div><b>Tic Tac Toe</b><small>2 players</small></div></button>
-            <button data-game="puzzle"><span>➜</span><div><b>Arrow Puzzle</b><small>Hard → Extreme</small></div></button>
-            <button data-game="carrom"><span>◉</span><div><b>Carrom Pool</b><small>2 players</small></div></button>
+            <button data-game="snakes" class="active" type="button"><span>🐍</span><div><b>Snakes & Ladders</b><small>2–6 players</small></div></button>
+            <button data-game="tictactoe" type="button"><span>✕</span><div><b>Tic Tac Toe</b><small>2 players</small></div></button>
+            <button data-game="wordsearch" type="button"><span>⌕</span><div><b>Word Search</b><small>Turn based</small></div></button>
           </nav>
-          <div class="side-head players-title"><span>PLAYERS</span><small id="playerCount">0/6</small></div>
+          <div class="side-title players-title"><span>PLAYERS</span><small id="playerCount">0/6</small></div>
           <div id="playersList" class="players-list"></div>
         </aside>
 
-        <section class="play-column">
-          <div id="gameStage" class="game-stage">
+        <section class="content-column">
+          <div class="stage glass">
             <section id="snakesView" class="game-view">
-              <div class="stage-head"><div><span class="stage-kicker">CLASSIC RACE</span><h2>Snakes & Ladders</h2></div><div id="snakesStatus" class="status-pill">Waiting</div></div>
+              <div class="stage-head"><div><span class="eyebrow">CLASSIC RACE</span><h2>Snakes & Ladders</h2></div><div id="snakesStatus" class="status-pill">LOBBY</div></div>
               <div class="snakes-layout">
-                <div class="board-wrap"><div id="snakesBoard" class="snakes-board"><div id="boardCells" class="board-cells"></div><div id="pathsLayer" class="paths-layer"></div><div id="piecesLayer" class="pieces-layer"></div></div></div>
+                <div class="board-frame"><div id="snakesBoard" class="snakes-board"><div id="boardCells" class="board-cells"></div><svg id="pathsLayer" class="paths-layer" viewBox="0 0 1000 1000" aria-hidden="true"></svg><div id="piecesLayer" class="pieces-layer"></div></div></div>
                 <div class="dice-panel">
-                  <div id="dice" class="dice" aria-label="Dice"><div class="dice-face">?</div></div>
-                  <button id="rollBtn" class="roll-btn" disabled>ROLL DICE</button>
-                  <button id="startSnakesBtn" class="small-action hidden">START GAME</button>
-                  <b id="turnText">Waiting for players</b><small id="lastMoveText">Create or join a room to play.</small>
+                  <div id="dice" class="dice" aria-label="Dice showing one">
+                    <span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span><span class="pip p7"></span><span class="pip p8"></span><span class="pip p9"></span>
+                  </div>
+                  <button id="rollBtn" class="roll-btn" disabled type="button">ROLL DICE</button>
+                  <button id="startSnakesBtn" class="small-action hidden" type="button">START GAME</button>
+                  <b id="turnText">Waiting for players</b>
+                  <small id="lastMoveText">Create or join a room to play.</small>
                 </div>
               </div>
             </section>
 
             <section id="tttView" class="game-view hidden">
-              <div class="stage-head"><div><span class="stage-kicker">DUEL</span><h2>Tic Tac Toe</h2></div><div id="tttStatus" class="status-pill">Ready</div></div>
+              <div class="stage-head"><div><span class="eyebrow">HEAD TO HEAD</span><h2>Tic Tac Toe</h2></div><div id="tttStatus" class="status-pill">READY</div></div>
               <div class="ttt-layout">
-                <div id="tttBoard" class="ttt-board"></div>
-                <div class="ttt-side"><div class="versus"><div><span class="xo x">X</span><b id="xName">Player 1</b></div><em>VS</em><div><span class="xo o">O</span><b id="oName">Player 2</b></div></div><p id="tttTurnText">Waiting for 2 players.</p><button id="tttRestartBtn" class="small-action hidden">NEW ROUND</button></div>
+                <div id="tttBoard" class="ttt-board" aria-label="Tic Tac Toe board"></div>
+                <div class="duel-panel">
+                  <div class="versus"><div><span class="xo x">X</span><b id="xName">Player 1</b></div><em>VS</em><div><span class="xo o">O</span><b id="oName">Player 2</b></div></div>
+                  <p id="tttTurnText">Waiting for 2 players.</p>
+                  <button id="tttRestartBtn" class="small-action hidden" type="button">NEW ROUND</button>
+                </div>
               </div>
             </section>
 
-            <section id="puzzleView" class="game-view hidden">
-              <div class="stage-head"><div><span class="stage-kicker">MIND CHALLENGE</span><h2>Arrow Puzzle</h2></div><div id="puzzleDifficulty" class="status-pill">HARD</div></div>
-              <div class="puzzle-layout">
-                <div><div class="puzzle-meta"><div><small>LEVEL</small><b id="puzzleLevel">1 / 12</b></div><div><small>TIME</small><b id="puzzleTimer">00:00</b></div><div><small>GOAL</small><b>Connect START → GOAL</b></div></div><div id="arrowGrid" class="arrow-grid"></div></div>
-                <div class="puzzle-side"><h3>Rotate the arrows</h3><p>Tap tiles until the path from START reaches GOAL. Every level gets nastier.</p><div class="difficulty-track"><span class="hard">1–4 HARD</span><span class="vhard">5–8 VERY HARD</span><span class="extreme">9–12 EXTREME</span></div><button id="puzzleResetBtn" class="small-action">RESTART LEVEL</button><button id="puzzleNextBtn" class="primary compact hidden">NEXT LEVEL</button><div id="puzzlePlayers" class="puzzle-players"></div></div>
-              </div>
-            </section>
-
-            <section id="carromView" class="game-view hidden">
-              <div class="stage-head"><div><span class="stage-kicker">REAL-TIME PHYSICS</span><h2>Carrom Pool</h2></div><div id="carromStatus" class="status-pill">Ready</div></div>
-              <div class="carrom-layout">
-                <div class="carrom-canvas-wrap"><canvas id="carromCanvas" width="900" height="900"></canvas><div id="aimGuide" class="aim-guide hidden"></div></div>
-                <div class="carrom-side"><div class="scoreboard"><div><span class="coin black"></span><small id="carromP1Name">Player 1</small><b id="carromP1Score">0</b></div><div><span class="queen-dot"></span><small>QUEEN</small><b>+2</b></div><div><span class="coin white"></span><small id="carromP2Name">Player 2</small><b id="carromP2Score">0</b></div></div><p id="carromTurnText">Waiting for 2 players.</p><div class="power-wrap"><small>SHOT POWER</small><div class="power-bar"><i id="powerFill"></i></div></div><p class="hint">Drag from the striker, aim, then release.</p><button id="carromRestartBtn" class="small-action hidden">RESET BOARD</button></div>
+            <section id="wordView" class="game-view hidden">
+              <div class="stage-head"><div><span class="eyebrow">TURN-BASED HUNT</span><h2>Word Search</h2></div><div id="wordStatus" class="status-pill">LIVE</div></div>
+              <div class="word-layout">
+                <div class="word-board-wrap">
+                  <div id="wordBoard" class="word-board" aria-label="Word search grid"></div>
+                  <p class="tap-help">Tap the <b>first letter</b>, then tap the <b>last letter</b>. No dragging needed.</p>
+                </div>
+                <div class="word-side">
+                  <div class="word-turn-card"><small>CURRENT TURN</small><b id="wordTurnText">Waiting for 2 players</b><span id="wordSelectionText">Select a word when it is your turn.</span></div>
+                  <div><small class="section-label">WORDS</small><div id="wordList" class="word-list"></div></div>
+                  <div><small class="section-label">SCORE</small><div id="wordScores" class="word-scores"></div></div>
+                  <button id="newWordsBtn" class="small-action hidden" type="button">NEW WORD BOARD</button>
+                </div>
               </div>
             </section>
           </div>
 
-          <div id="stickerTray" class="sticker-tray" aria-label="Reaction stickers"></div>
+          <section class="reactions glass">
+            <div class="reaction-title"><b>REACTIONS</b><small>Tap a meme — everyone sees it</small></div>
+            <div id="stickerTray" class="sticker-tray"></div>
+          </section>
         </section>
       </div>
     </section>
   </main>
 
   <div id="toastStack" class="toast-stack"></div>
-  <div id="stickerPopup" class="sticker-popup hidden"><div class="sticker-burst"></div><img alt="Reaction sticker" /><b></b><small></small></div>
-  <div id="winnerModal" class="winner-modal hidden"><div class="winner-card"><div class="trophy">🏆</div><span>WINNER</span><h2 id="winnerName">Player</h2><p id="winnerGame">Snakes & Ladders</p><button id="winnerCloseBtn" class="primary compact">NICE!</button></div></div>
+  <div id="stickerPopup" class="sticker-popup hidden"><div class="burst"></div><img alt="Reaction meme" /><b></b><small></small></div>
+  <div id="winnerModal" class="winner-modal hidden"><div class="winner-card"><div class="trophy">♛</div><span>WINNER</span><h2 id="winnerName">Player</h2><p id="winnerGame">Game</p><button id="winnerCloseBtn" class="primary compact" type="button">NICE!</button></div></div>
   <div id="confettiLayer" class="confetti-layer"></div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/app.js"></script>
