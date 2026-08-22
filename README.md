@@ -1,15 +1,30 @@
-# PlayVerse Premium V7
+# PlayVerse Premium V8
 
-Three multiplayer browser games: Snakes & Ladders, Tic Tac Toe, and Word Search.
+Three Chrome multiplayer games in one room:
 
-## V7 changes
-- Restored old-school premium Snakes & Ladders board styling with wooden frame, parchment squares, classic chess-style pawns, richer snakes/ladders, pip dice, smooth turn locking and full movement animation.
-- Word Search now gives each player exactly 60 seconds per turn. If time expires, the server automatically passes the turn to the next player.
-- Word timer is server-authoritative and visible to every player with a countdown bar.
-- Tic Tac Toe remains fixed-size and multiplayer.
-- Voice, speaker, SFX and meme reactions remain included.
+- Snakes & Ladders
+- Tic Tac Toe
+- Word Search
+
+## V8 fixes
+
+- Rebuilt the Snakes & Ladders board so the snakes and ladders are always visible at the correct scale.
+- Restored the classic wooden-board look and chess-style pawns.
+- Added more natural multi-curve snake bodies, forward-facing heads, eyes, tongue, shading and classic wooden ladders.
+- Real 3D pip dice with smooth roll animation and sound.
+- Server turn lock: the next player cannot roll until dice + pawn + snake/ladder movement is finished.
+- Play Again button works after a Snakes & Ladders win.
+- If a player leaves during a move, the room recovers instead of leaving the game locked.
+- Tic Tac Toe cells stay exactly the same size whether empty, X or O.
+- Word Search gives each player 60 seconds. When time reaches zero, the server automatically passes the turn.
+- Word timer is visible to everyone with a countdown bar and final-10-second warning.
+- Mobile layouts were checked for horizontal overflow.
+- Sound effects default ON. Voice mic and speaker controls remain available.
 
 ## Deploy
-Upload all files to the GitHub repository already connected to Render. Render will redeploy automatically. No database, admin password or environment variables are required for this build.
 
-Health check: `/health` should report version `7.1.0`.
+Upload all files to the root of the GitHub repo already connected to Render and commit. Render will redeploy automatically.
+
+No database, admin password, persistent disk or environment variable is required for this build.
+
+Health check: `/health` should return version `8.0.0`.

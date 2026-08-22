@@ -46,13 +46,13 @@ function toast(msg){const d=document.createElement('div');d.className='toast';d.
 function ackEmit(event,payload={}){return new Promise(resolve=>socket.emit(event,payload,res=>resolve(res||{ok:false,error:'No response'})))}
 function displayGameName(g){return {snakes:'Snakes & Ladders',tictactoe:'Tic Tac Toe',wordsearch:'Word Search'}[g]||g}
 function updateConn(ok){createBtn.disabled=!ok;joinBtn.disabled=!ok;$('connectionText').textContent=ok?'Game server connected':'Connecting…';document.querySelector('.connection')?.classList.toggle('online',ok)}
-socket.on('connect',()=>updateConn(true));socket.on('disconnect',()=>{updateConn(false);toast('Connection lost. Reconnecting…')});socket.on('connect_error',()=>updateConn(false));
+socket.on('connect',()=>updateConn(true));socket.on('disconnect',()=>{updateConn(false);toast('Connection lost. Reconnecting…')});socket.on('connect_error',()=>updateConn(false));updateConn(socket.connected);
 fetch('/config').then(r=>r.json()).then(d=>{appSettings={...appSettings,...(d.settings||{})};sfxOn=appSettings.soundDefaultOn!==false;renderAudioButtons()}).catch(()=>{});
 fetch('/api/stickers').then(r=>r.json()).then(d=>{stickerList=d.stickers||[];renderStickers()}).catch(()=>{});
 socket.on('game:settings',s=>{appSettings={...appSettings,...s};renderPlayers();renderAudioButtons()});socket.on('stickers:update',s=>{stickerList=s||[];renderStickers()});socket.on('room:notice',msg=>toast(msg));
 
 createBtn.addEventListener('click',async()=>{const name=nameInput.value.trim().slice(0,20);if(!name)return landingError.textContent='Enter your name.';landingError.textContent='';const r=await ackEmit('room:create',{name});if(!r.ok)return landingError.textContent=r.error||'Could not create room.';enterRoom(r.room)});
-joinBtn.addEventListener('click',async()=>{const name=nameInput.value.trim().slice(0,20),code=roomInput.value.trim().toUpperCase();if(!name)return landingError.textContent='Enter your name.';if(code.length<4)return landingError.textContent='Enter the room code.';landingError.textContent='';const r=await ackEmit('room:join',{name,code});if(!r.ok)return landingError.textContent=r.error||'Could not join room.';enterRoom(r.room)});
+joinBtn.addEventListener('click',async()=>{const name=nameInput.value.trim().slice(0,20),code=roomInput.value.trim().toUpperCase();if(!name)return landingError.textContent='Enter your name.';if(code.length!==6)return landingError.textContent='Enter the 6-character room code.';landingError.textContent='';const r=await ackEmit('room:join',{name,code});if(!r.ok)return landingError.textContent=r.error||'Could not join room.';enterRoom(r.room)});
 roomInput.addEventListener('input',()=>roomInput.value=roomInput.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6));nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')createBtn.click()});roomInput.addEventListener('keydown',e=>{if(e.key==='Enter')joinBtn.click()});
 $('copyCodeBtn').addEventListener('click',async()=>{if(!roomState)return;try{await navigator.clipboard.writeText(roomState.code);toast('Room code copied')}catch{toast(`Room: ${roomState.code}`)}});$('leaveBtn').addEventListener('click',()=>{socket.emit('room:leave');location.href='/'});
 function enterRoom(room){roomState=room;landing.classList.add('hidden');gameShell.classList.remove('hidden');roomCodeEl.textContent=room.code;visualPositions.clear();room.players.forEach(p=>visualPositions.set(p.id,p.position||1));renderAll();sfx('join');history.replaceState({},'',room.path||'/snakes')}
@@ -87,13 +87,29 @@ const snakePairs=Object.entries(jumps).filter(([a,b])=>Number(b)<Number(a)).map(
 const boardCells=$('boardCells'),pathsLayer=$('pathsLayer'),piecesLayer=$('piecesLayer'),dice=$('dice'),rollBtn=$('rollBtn'),startSnakesBtn=$('startSnakesBtn'),turnText=$('turnText'),lastMoveText=$('lastMoveText'),snakesStatus=$('snakesStatus');
 function cellCenter(n){const safe=Math.max(1,Math.min(100,Number(n)||1)),row=Math.floor((safe-1)/10),pos=(safe-1)%10,col=row%2===0?pos:9-pos;return{x:col*10+5,y:(9-row)*10+5}}
 function svgEl(name,attrs={}){const el=document.createElementNS('http://www.w3.org/2000/svg',name);for(const[k,v]of Object.entries(attrs))el.setAttribute(k,String(v));return el}
-function curvedPath(a,b,bend=1){const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len,amount=Math.min(9,2.8+len*.08)*bend,c1={x:a.x+dx*.29+nx*amount,y:a.y+dy*.29+ny*amount},c2={x:a.x+dx*.68-nx*amount*.72,y:a.y+dy*.68-ny*amount*.72};return{d:`M ${a.x} ${a.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${b.x} ${b.y}`,c1,c2}}
+function curvedPath(a,b,bend=1){
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
+  const amp=Math.min(7.2,2.2+len*.055)*bend;
+  const pts=[a];
+  for(const t of [.16,.32,.48,.64,.80]){
+    const wave=Math.sin(t*Math.PI*4.1)*amp*(1-t*.18);
+    pts.push({x:a.x+dx*t+nx*wave,y:a.y+dy*t+ny*wave});
+  }
+  pts.push(b);
+  let d=`M ${a.x} ${a.y}`;
+  for(let i=1;i<pts.length-1;i++){
+    const mid={x:(pts[i].x+pts[i+1].x)/2,y:(pts[i].y+pts[i+1].y)/2};
+    d+=` Q ${pts[i].x} ${pts[i].y} ${mid.x} ${mid.y}`;
+  }
+  d+=` Q ${pts[pts.length-2].x} ${pts[pts.length-2].y} ${b.x} ${b.y}`;
+  return{d,c1:pts[1],c2:pts[pts.length-2]};
+}
 function buildBoard(){
   if(!boardCells||!pathsLayer)return;
   boardCells.innerHTML='';
   for(let displayRow=9;displayRow>=0;displayRow--){
     const row=[];for(let i=1;i<=10;i++)row.push(displayRow*10+i);if(displayRow%2===1)row.reverse();
-    row.forEach(n=>{const d=document.createElement('div');d.className='board-cell '+(((displayRow+n)%2)?'dark':'light');d.dataset.cell=String(n);const sp=document.createElement('span');sp.textContent=n;d.appendChild(sp);boardCells.appendChild(d)});
+    row.forEach(n=>{const d=document.createElement('div');d.className='board-cell '+(((displayRow+n)%2)?'dark':'light');if(jumps[n])d.classList.add(jumps[n]>n?'ladder-start':'snake-start');d.dataset.cell=String(n);const sp=document.createElement('span');sp.textContent=n;d.appendChild(sp);boardCells.appendChild(d)});
   }
   drawPaths();
 }
@@ -146,15 +162,15 @@ function renderSnakes(){
   if(label)label.textContent=meTurn?'ROLL DICE':phase==='rolling'?'DICE ROLLING':phase==='moving'?'MOVE IN PROGRESS':'WAIT FOR TURN';
   if(hint)hint.textContent=meTurn?'Tap to roll your dice':phase==='moving'?'Next roll unlocks after the pawn stops':`${current?.name||'Player'} is playing`;
   turnText.textContent=s.status==='won'?'Round complete':s.status==='playing'?(phase==='rolling'?`${current?.name||'Player'} is rolling…`:phase==='moving'?`${current?.name||'Player'} is moving…`:meTurn?'Your turn — roll now':`${current?.name||'Player'}'s turn`):'Waiting to start';
-  startSnakesBtn.classList.toggle('hidden',!(s.status==='lobby'&&roomState.hostId===socket.id));startSnakesBtn.disabled=roomState.players.length<(roomState.settings?.minPlayers||2);
-  if(s.lastRoll&&phase!=='rolling')setDiceFace(s.lastRoll);
-  const m=s.lastMove;if(m){const p=roomState.players.find(x=>x.id===m.playerId);lastMoveText.textContent=m.blocked?`${p?.name||'Player'} rolled ${m.roll} — exact roll needed.`:m.special?`${p?.name||'Player'} rolled ${m.roll} · ${m.special.type==='snake'?'snake slide':'ladder climb'}!`:`${p?.name||'Player'} rolled ${m.roll}.`}
+  const hostCanStart=roomState.hostId===socket.id&&s.status!=='playing';startSnakesBtn.classList.toggle('hidden',!hostCanStart);startSnakesBtn.disabled=roomState.players.length<(roomState.settings?.minPlayers||2);startSnakesBtn.textContent=s.status==='won'?'PLAY AGAIN':'START GAME';
+  if(s.lastRoll&&phase!=='rolling')setDiceFace(s.lastRoll);else if(!s.lastRoll&&!dice.classList.contains('rolling'))setDiceFace(1);
+  const m=s.lastMove;if(m){const p=roomState.players.find(x=>x.id===m.playerId);lastMoveText.textContent=m.blocked?`${p?.name||'Player'} rolled ${m.roll} — exact roll needed.`:m.special?`${p?.name||'Player'} rolled ${m.roll} · ${m.special.type==='snake'?'snake slide':'ladder climb'}!`:`${p?.name||'Player'} rolled ${m.roll}.`}else lastMoveText.textContent=s.status==='playing'?'Game started. Roll when it is your turn.':'Host starts when everyone is ready.';
 }
 startSnakesBtn.addEventListener('click',async()=>{ensureAudio();const r=await ackEmit('snakes:start');if(!r.ok)toast(r.error||'Could not start')});rollBtn.addEventListener('click',async()=>{ensureAudio();if(animatingMove)return;rollBtn.disabled=true;const r=await ackEmit('snakes:roll');if(!r.ok){toast(r.error||'Could not roll');renderSnakes()}});
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 async function animateSnakesMove(m,state){
   animatingMove=true;const p=state.players.find(x=>x.id===m.playerId),el=piecesLayer.querySelector(`[data-player="${CSS.escape(m.playerId)}"]`);if(!p){animatingMove=false;return}visualPositions.set(p.id,m.from);layoutPieces();
-  if(m.blocked){sfx('wrong');await sleep(350)}else{
+  if(m.blocked){sfx('wrong');if(el){el.classList.remove('blocked');void el.offsetWidth;el.classList.add('blocked')}await sleep(520)}else{
     for(let pos=m.from+1;pos<=m.raw;pos++){visualPositions.set(p.id,pos);layoutPieces();if(el){el.classList.remove('jump');void el.offsetWidth;el.classList.add('jump')}sfx('jump');await sleep(300)}
     if(m.special){sfx(m.special.type);const from=cellCenter(m.special.from),to=cellCenter(m.special.to);if(el){const anim=el.animate([{left:from.x+'%',top:from.y+'%',transform:'translate(-50%,-82%) scale(1)'},{left:((from.x+to.x)/2)+'%',top:((from.y+to.y)/2-2)+'%',transform:'translate(-50%,-96%) scale(1.08)'},{left:to.x+'%',top:to.y+'%',transform:'translate(-50%,-82%) scale(1)'}],{duration:m.special.type==='ladder'?1050:1320,easing:m.special.type==='ladder'?'steps(7,end)':'cubic-bezier(.22,.7,.2,1)'});await anim.finished.catch(()=>{})}else await sleep(m.special.type==='ladder'?1050:1320);visualPositions.set(p.id,m.special.to);layoutPieces()}
   }
@@ -181,14 +197,14 @@ function updateWordTimer(){
 }
 setInterval(updateWordTimer,250);
 function renderWordSearch(){
-  if(!roomState)return;const w=roomState.wordsearch;if(!w)return;wordStatus.textContent=w.status==='won'?'FINISHED':'LIVE';const current=roomState.players[w.turnIndex],meTurn=w.status!=='won'&&roomState.players.length>=2&&current?.id===socket.id;wordTurnText.textContent=roomState.players.length<2?'Waiting for 2 players':w.status==='won'?'Round finished':meTurn?'Your turn':`${current?.name||'Player'}'s turn`;if(wordSelectionStart===null)wordSelectionText.textContent=meTurn?'Tap the first letter of a word.':'Wait for your turn.';
+  if(!roomState)return;const w=roomState.wordsearch;if(!w)return;wordStatus.textContent=w.status==='won'?'FINISHED':'LIVE';const current=roomState.players[w.turnIndex],meTurn=w.status!=='won'&&roomState.players.length>=2&&current?.id===socket.id;if(!meTurn&&wordSelectionStart!==null)wordSelectionStart=null;wordTurnText.textContent=roomState.players.length<2?'Waiting for 2 players':w.status==='won'?'Round finished':meTurn?'Your turn':`${current?.name||'Player'}'s turn`;if(wordSelectionStart===null)wordSelectionText.textContent=meTurn?'Tap the first letter of a word.':'Wait for your turn.';
   if(wordBoard.dataset.seed!==String(w.seed)){wordBoard.dataset.seed=String(w.seed);wordBoard.innerHTML='';wordSelectionStart=null;w.grid.forEach((ch,i)=>{const b=document.createElement('button');b.className='word-cell';b.type='button';b.dataset.index=i;b.textContent=ch;b.setAttribute('aria-label',`Letter ${ch}`);wordBoard.appendChild(b)})}
   [...wordBoard.children].forEach(c=>{c.classList.remove('found','mine','start','preview');c.style.background='';c.style.borderColor=''});
   w.found.forEach(f=>{const p=roomState.players.find(x=>x.id===f.playerId),color=colors[p?.colorIndex%colors.length||0];for(const idx of f.path){const c=wordBoard.children[idx];if(c){c.classList.add(f.playerId===socket.id?'mine':'found');c.style.borderColor=color;c.style.background=`color-mix(in srgb, ${color} 26%, #14213a)`}}});
   if(wordSelectionStart!==null)wordBoard.children[wordSelectionStart]?.classList.add('start');
   wordList.innerHTML='';w.words.forEach(word=>{const d=document.createElement('div'),f=w.found.find(x=>x.word===word);d.className='word-chip'+(f?' found':'');d.textContent=word;wordList.appendChild(d)});
   wordScores.innerHTML='';roomState.players.forEach(p=>{const score=w.found.filter(f=>f.playerId===p.id).length,row=document.createElement('div');row.className='score-row';row.innerHTML=`<i class="score-dot" style="--score:${colors[p.colorIndex%colors.length]}"></i><b></b><span>${score}</span>`;row.querySelector('b').textContent=p.name;wordScores.appendChild(row)});
-  newWordsBtn.classList.toggle('hidden',roomState.hostId!==socket.id);updateWordTimer();
+  newWordsBtn.classList.toggle('hidden',!(roomState.hostId===socket.id&&(w.status==='won'||roomState.players.length<2)));updateWordTimer();
 }
 wordBoard.addEventListener('click',async e=>{const c=e.target.closest('.word-cell');if(!c||!roomState)return;const w=roomState.wordsearch,current=roomState.players[w.turnIndex];if(roomState.players.length<2)return toast('Need 2 players.');if(w.status==='won')return toast('Round finished.');if(current?.id!==socket.id)return toast('Wait for your turn.');const idx=Number(c.dataset.index);ensureAudio();if(wordSelectionStart===null){wordSelectionStart=idx;wordSelectionText.textContent='Now tap the last letter.';renderWordSearch();return}const start=wordSelectionStart,line=clientLine(start,idx,w.size);if(!line){wordSelectionStart=idx;wordSelectionText.textContent='Straight lines only. New first letter selected.';sfx('wrong');renderWordSearch();return}for(const i of line)wordBoard.children[i]?.classList.add('preview');const r=await ackEmit('wordsearch:select',{start,end:idx});wordSelectionStart=null;if(!r.ok){sfx('wrong');wordSelectionText.textContent=r.error||'Not a word.';toast(r.error||'Not a word.');renderWordSearch()}else{sfx('word');wordSelectionText.textContent=`Found ${r.word}!`;confettiBurst(18)}});
 newWordsBtn.addEventListener('click',async()=>{const r=await ackEmit('wordsearch:new');if(!r.ok)toast(r.error||'Could not make a new board');else{wordSelectionStart=null;sfx('join')}});socket.on('wordsearch:found',d=>{lastWordTickSecond=null;if(d.playerId!==socket.id){sfx('word');toast(`${roomState?.players.find(p=>p.id===d.playerId)?.name||'Player'} found ${d.word}`)}});socket.on('wordsearch:timeout',d=>{wordSelectionStart=null;lastWordTickSecond=null;sfx('wrong');toast(`${d.name||'Player'} ran out of time — turn passed.`);renderWordSearch()});

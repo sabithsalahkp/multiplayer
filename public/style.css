@@ -95,3 +95,92 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 #snakesView .ladder-highlight{stroke:#f6cf8c;stroke-width:.3;stroke-linecap:round;opacity:.9}
 #snakesView .ladder-rung{stroke:#bd7530;stroke-width:1.0;stroke-linecap:round}
 #snakesView .ladder-rung-hi{stroke:#f4d196;stroke-width:.22;stroke-linecap:round}
+
+/* ===== PLAYVERSE V8 — CLEAN CLASSIC BOARD FINAL OVERRIDES ===== */
+#snakesView .snakes-layout{grid-template-columns:minmax(0,1fr) 255px;align-items:stretch;gap:18px}
+#snakesView .board-frame{position:relative;padding:16px;border-radius:28px;background:linear-gradient(140deg,#32190d 0%,#86502a 10%,#d1a05b 20%,#70401f 34%,#2e170c 50%,#936036 66%,#deb273 81%,#4a2714 100%);box-shadow:0 28px 70px #0009,inset 0 0 0 2px #1d0e07,inset 0 0 0 6px #e5bd7866,inset 0 0 28px #1a0c0677}
+#snakesView .board-frame:before,#snakesView .board-frame:after{content:"";position:absolute;pointer-events:none;z-index:20;border-radius:20px}
+#snakesView .board-frame:before{inset:7px;border:1px solid #f3d69a66}
+#snakesView .board-frame:after{inset:11px;border:1px solid #241208aa}
+#snakesView .snakes-board{position:relative;aspect-ratio:1;overflow:hidden;border-radius:10px;background:#ead9b5!important;isolation:isolate;box-shadow:inset 0 0 0 2px #5a3a20aa,inset 0 0 30px #3a1d0c38,0 5px 15px #170a0577}
+#snakesView .board-cells{z-index:1!important}
+#snakesView .board-cell{font-family:Georgia,'Times New Roman',serif;font-weight:800;color:#3f2b19;text-shadow:0 1px #fff9;border:1px solid #6946272b;padding:4px;background:#efe0be;box-shadow:inset 0 0 12px #fff1}
+#snakesView .board-cell:nth-child(5n+1){background:linear-gradient(145deg,#f4e6c4,#dfc79d)}
+#snakesView .board-cell:nth-child(5n+2){background:linear-gradient(145deg,#8fc6b2,#6fa791);color:#183d34;text-shadow:0 1px #fff5}
+#snakesView .board-cell:nth-child(5n+3){background:linear-gradient(145deg,#eab591,#cf8b6a);color:#542d20;text-shadow:0 1px #fff4}
+#snakesView .board-cell:nth-child(5n+4){background:linear-gradient(145deg,#e6d99f,#c9bb79);color:#463f1e}
+#snakesView .board-cell:nth-child(5n){background:linear-gradient(145deg,#9cb5d6,#758faf);color:#20344a;text-shadow:0 1px #fff4}
+#snakesView .board-cell:first-child,#snakesView .board-cell:last-child{background:linear-gradient(145deg,#f6dc7c,#c99b43)!important;color:#2f210f!important;box-shadow:inset 0 0 0 2px #8c6828,inset 0 0 18px #fff3}
+#snakesView .board-cell:first-child:after{content:'FINISH';position:absolute;right:3px;bottom:3px;font:900 6px/1 system-ui;letter-spacing:.08em;color:#6e4b16}
+#snakesView .board-cell:last-child:after{content:'START';position:absolute;right:3px;bottom:3px;font:900 6px/1 system-ui;letter-spacing:.08em;color:#6e4b16}
+#snakesView .board-cell.ladder-start{box-shadow:inset 0 0 0 2px #2f7b45aa,inset 0 0 18px #42ad5f33}
+#snakesView .board-cell.snake-start{box-shadow:inset 0 0 0 2px #a33737aa,inset 0 0 18px #d34a4a30}
+#snakesView .paths-layer{z-index:5!important;display:block!important;visibility:visible!important;opacity:1!important;overflow:visible;filter:drop-shadow(0 1.2px .7px #23120766)}
+#snakesView .pieces-layer{z-index:9!important}
+
+/* SVG is viewBox 0 0 100 100: these widths are intentionally in board units. */
+#snakesView .snake-group{transform-box:fill-box;transform-origin:center;animation:snakeAliveV8 3.8s ease-in-out infinite alternate}
+#snakesView .snake-body-under{fill:none!important;stroke:#1c160f88!important;stroke-width:4.7!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+#snakesView .snake-body{fill:none!important;stroke-width:3.65!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+#snakesView .snake-belly{fill:none!important;stroke:#fff7!important;stroke-width:.42!important;stroke-linecap:round!important;stroke-dasharray:1.6 1.15!important;opacity:.72}
+#snakesView .snake-scales{fill:none!important;stroke:#12271988!important;stroke-width:.24!important;stroke-linecap:round!important;stroke-dasharray:.26 1.05!important;animation:snakeScalesV8 3.1s linear infinite}
+#snakesView .snake-head{stroke:#182117!important;stroke-width:.38!important;filter:drop-shadow(.25px .4px .2px #0006)}
+#snakesView .snake-snout{opacity:.82}
+#snakesView .snake-eye{fill:#fffbe9!important;stroke:#21180d!important;stroke-width:.12!important}
+#snakesView .snake-pupil{fill:#0d0f0c!important}
+#snakesView .snake-nostril{fill:#25190f!important}
+#snakesView .snake-tongue{stroke:#dc284d!important;stroke-width:.38!important;stroke-linecap:round!important;animation:tongueV8 1.15s steps(2,end) infinite}
+#snakesView .snake-tail{filter:drop-shadow(.2px .35px .15px #0005)}
+@keyframes snakeAliveV8{0%{transform:translate(-.12px,.08px) rotate(-.08deg)}100%{transform:translate(.12px,-.12px) rotate(.08deg)}}
+@keyframes snakeScalesV8{to{stroke-dashoffset:-4}}
+@keyframes tongueV8{0%,64%{opacity:.15}65%,100%{opacity:1}}
+
+#snakesView .ladder-group{transform-box:fill-box;transform-origin:center;filter:drop-shadow(.25px .5px .25px #24140c55)}
+#snakesView .ladder-shadow{stroke:#27170e66!important;stroke-width:1.65!important;stroke-linecap:round!important}
+#snakesView .ladder-rail{stroke-width:1.22!important;stroke-linecap:round!important}
+#snakesView .ladder-highlight{stroke:#f6d59a!important;stroke-width:.22!important;stroke-linecap:round!important;opacity:.92}
+#snakesView .ladder-rung{stroke:#b86c2b!important;stroke-width:.86!important;stroke-linecap:round!important}
+#snakesView .ladder-rung-hi{stroke:#f6d7a0!important;stroke-width:.16!important;stroke-linecap:round!important;opacity:.9}
+
+/* Classic chess/pawn pieces. */
+#snakesView .piece{width:5.4%;height:7.8%;transform:translate(-50%,-82%);filter:drop-shadow(0 5px 3px #24150a88);transition:left .12s linear,top .12s linear;will-change:left,top,transform}
+#snakesView .piece.current{filter:drop-shadow(0 0 7px #ffe691) drop-shadow(0 0 14px #eab245bb) drop-shadow(0 5px 3px #24150a88);animation:currentPawnV8 1.05s ease-in-out infinite}
+#snakesView .piece.blocked{animation:blockedPawnV8 .52s ease}
+@keyframes currentPawnV8{50%{transform:translate(-50%,-90%) scale(1.06)}}
+@keyframes blockedPawnV8{0%,100%{transform:translate(-50%,-82%)}25%{transform:translate(-60%,-82%) rotate(-7deg)}50%{transform:translate(-40%,-82%) rotate(7deg)}75%{transform:translate(-55%,-82%) rotate(-3deg)}}
+
+#snakesView .dice-panel{align-self:stretch;justify-content:center;padding:17px 14px;border-radius:23px;background:linear-gradient(160deg,#241a12,#0e0c09 60%,#2e2014);border:1px solid #7a5b34;box-shadow:inset 0 1px #fff2,0 18px 38px #0006}
+#snakesView .turn-card{background:linear-gradient(180deg,#19140f,#0d0b09);border-color:#644a2b}
+
+/* Word Search turn clock is always visible and never shifts the layout. */
+.word-turn-line{display:grid;grid-template-columns:minmax(0,1fr) 78px;align-items:center;gap:10px}
+.word-turn-line>b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.word-timer-text{font-variant-numeric:tabular-nums;font-size:21px!important;letter-spacing:.04em;color:#74e3ff;background:#091526;border:1px solid #28537a;border-radius:10px;padding:7px 6px;min-width:78px;text-align:center;box-shadow:inset 0 0 16px #1d8aff14}
+.word-timer-text.urgent{color:#ff8c9d;border-color:#8b3144;animation:timerPulseV8 .7s ease-in-out infinite}
+.word-timer-track{height:8px;border-radius:999px;background:#07101d;border:1px solid #243754;overflow:hidden;margin:4px 0 2px}
+.word-timer-track i{display:block;height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,#38dfff,#7964ff);transition:width .25s linear}
+.word-timer-track i.urgent{background:linear-gradient(90deg,#ffb34d,#ff4c72)}
+@keyframes timerPulseV8{50%{transform:scale(1.04);box-shadow:0 0 18px #ff536e33}}
+
+@media(max-width:720px){
+  #snakesView .snakes-layout{grid-template-columns:1fr;gap:10px}
+  #snakesView .board-frame{padding:8px;border-radius:19px}
+  #snakesView .board-frame:before{inset:4px;border-radius:15px}
+  #snakesView .board-frame:after{inset:6px;border-radius:13px}
+  #snakesView .snakes-board{border-radius:9px}
+  #snakesView .piece{width:6.4%}
+  #snakesView .dice-panel{display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-rows:auto auto auto;align-items:center;text-align:left;gap:8px;padding:10px!important}
+  #snakesView .dice-stage{grid-row:1/4;height:112px}
+  #snakesView .roll-btn{height:50px}
+  #snakesView .turn-card{padding:8px 9px}
+  #snakesView .dice-panel>small{font-size:9px;min-height:0}
+  .word-turn-line{grid-template-columns:minmax(0,1fr) 70px}
+  .word-timer-text{font-size:17px!important;min-width:70px;padding:6px 4px}
+}
+@media(max-width:390px){#snakesView .piece{width:6.8%}#snakesView .board-cell{padding:2px;font-size:7px}}
+
+/* V8 fixed Tic Tac Toe geometry: content never changes row/column size. */
+.ttt-board{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(3,minmax(0,1fr))!important;align-items:stretch;justify-items:stretch}
+.ttt-cell{width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;aspect-ratio:auto!important;overflow:hidden;contain:layout paint}
+.ttt-cell.pop{animation:markCellGlowV8 .28s ease!important}
+@keyframes markCellGlowV8{0%{filter:brightness(1.45)}100%{filter:brightness(1)}}

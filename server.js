@@ -130,13 +130,18 @@ function pubRoom(r){
 function leaveRoom(socket){
   const r=roomOf(socket); if(!r) return;
   const idx=r.players.findIndex(p=>p.id===socket.id); if(idx<0) return;
+  const affectedTttPlayer=idx<2;
   const [gone]=r.players.splice(idx,1); socket.leave(r.code); socket.data.roomCode=null;
   socket.to(r.code).emit('rtc:peer-left',{peerId:socket.id});
   if(!r.players.length){ stopWordTurn(r); rooms.delete(r.code); return; }
   if(r.hostId===socket.id) r.hostId=r.players[0].id;
   r.snakes.turnIndex=Math.min(r.snakes.turnIndex,Math.max(0,r.players.length-1));
-  r.ttt.turnIndex=Math.min(r.ttt.turnIndex,1);
+  if(affectedTttPlayer){r.ttt={status:'ready',board:Array(9).fill(null),turnIndex:0,winnerId:null,round:(r.ttt.round||1)+1};}
+  else r.ttt.turnIndex=Math.min(r.ttt.turnIndex,Math.min(1,Math.max(0,r.players.length-1)));
   r.wordsearch.turnIndex=Math.min(r.wordsearch.turnIndex,Math.max(0,r.players.length-1));
+  if(r.snakes.status==='playing'&&r.players.length<settings.minPlayers){
+    r.snakes.status='lobby';r.snakes.phase='idle';r.snakes.rolling=false;r.snakes.winnerId=null;r.snakes.lastMove=null;r.snakes.lastRoll=null;r.snakes.moveSeq++;r.snakes.turnReadyAt=0;r.snakes.turnIndex=0;
+  }
   if(r.activeGame==='wordsearch') beginWordTurn(r);
   notice(r,`${gone.name} left.`); emitRoom(r);
 }
@@ -157,7 +162,7 @@ function samePath(a,b){ return a.length===b.length&&a.every((v,i)=>v===b[i]); }
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static(PUBLIC_DIR));
-app.get('/health',(_q,res)=>res.json({ok:true,version:'7.1.0'}));
+app.get('/health',(_q,res)=>res.json({ok:true,version:'8.0.0'}));
 app.get('/config',(_q,res)=>res.json({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],settings:publicSettings()}));
 app.get('/api/stickers',(_q,res)=>res.json({ok:true,stickers:publicStickers()}));
 app.get('/admin',(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'admin.html')));
@@ -243,13 +248,22 @@ io.on('connection',socket=>{
       setTimeout(()=>{
         const still=rooms.get(r.code);
         if(!still||still!==r||r.snakes.lastMove?.id!==moveId) return;
+        const liveIdx=r.players.findIndex(x=>x.id===p.id);
+        if(liveIdx<0){
+          r.snakes.phase='idle'; r.snakes.rolling=false; r.snakes.turnReadyAt=Date.now();
+          r.snakes.turnIndex=Math.min(r.snakes.turnIndex,Math.max(0,r.players.length-1));
+          emitRoom(r);
+          io.to(r.code).emit('snakes:turn-ready',{playerId:r.players[r.snakes.turnIndex]?.id||null});
+          return;
+        }
         if(to===100){
           r.snakes.status='won'; r.snakes.winnerId=p.id; r.snakes.phase='finished'; r.snakes.turnReadyAt=0;
           emitRoom(r);
           io.to(r.code).emit('game:win',{game:'snakes',winnerId:p.id,moveId});
           return;
         }
-        if(!(settings.extraTurnOnSix&&roll===6)) r.snakes.turnIndex=(r.snakes.turnIndex+1)%r.players.length;
+        if(!(settings.extraTurnOnSix&&roll===6)) r.snakes.turnIndex=(liveIdx+1)%r.players.length;
+        else r.snakes.turnIndex=liveIdx;
         r.snakes.phase='idle'; r.snakes.turnReadyAt=Date.now();
         emitRoom(r);
         io.to(r.code).emit('snakes:turn-ready',{playerId:r.players[r.snakes.turnIndex]?.id||null});
@@ -297,4 +311,4 @@ io.on('connection',socket=>{
   socket.on('disconnect',()=>leaveRoom(socket));
 });
 
-server.listen(PORT,()=>console.log(`PlayVerse v7 running on ${PORT}`));
+server.listen(PORT,()=>console.log(`PlayVerse v8 running on ${PORT}`));
