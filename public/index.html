@@ -3,19 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0d1321" />
-  <meta name="description" content="Play stylish multiplayer Snakes & Ladders with live browser voice chat and stickers." />
+  <meta name="theme-color" content="#10150f" />
+  <meta name="description" content="Play a premium animated multiplayer Snakes & Ladders game with live voice chat and stickers." />
   <title>Snakes & Ladders Live</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div class="noise"></div>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <div class="grain"></div>
+
   <main class="app-shell">
-    <section id="landing" class="landing panel">
-      <div class="brand-mark">S<span>&</span>L</div>
-      <p class="eyebrow">LIVE MULTIPLAYER</p>
+    <section id="landing" class="landing glass-panel">
+      <div class="brand-crest" aria-hidden="true"><span>S</span><i>&</i><span>L</span></div>
+      <p class="eyebrow">LIVE BOARD GAME</p>
       <h1>Snakes <span>&</span> Ladders</h1>
-      <p class="sub">Classic board. Real friends. Live voice. Reactions.</p>
+      <p class="sub">Animated board · Real-time rooms · Live voice · Stickers</p>
+
+      <div class="connection-line">
+        <span id="connectionDot" class="connection-dot"></span>
+        <span id="connectionText">Connecting to game server…</span>
+      </div>
 
       <label class="field">
         <span>Your name</span>
@@ -23,11 +31,11 @@
       </label>
 
       <div class="landing-actions">
-        <button id="createBtn" class="btn btn-primary">Create Room</button>
-        <div class="or"><span></span><b>OR</b><span></span></div>
+        <button id="createBtn" class="btn btn-gold" disabled>Create Room</button>
+        <div class="or"><span></span><b>OR JOIN A FRIEND</b><span></span></div>
         <div class="join-row">
           <input id="roomInput" maxlength="6" autocomplete="off" placeholder="ROOM CODE" />
-          <button id="joinBtn" class="btn btn-dark">Join</button>
+          <button id="joinBtn" class="btn btn-dark" disabled>Join</button>
         </div>
       </div>
       <p id="landingError" class="error" role="alert"></p>
@@ -36,46 +44,49 @@
 
     <section id="gameView" class="game-view hidden">
       <header class="topbar">
-        <div class="brand-mini">S&L</div>
+        <div class="brand-mini"><b>S</b><span>&</span><b>L</b></div>
         <div class="room-chip">
           <span>ROOM</span>
           <strong id="roomCode">------</strong>
-          <button id="copyCodeBtn" class="icon-btn small" aria-label="Copy room code">COPY</button>
+          <button id="copyCodeBtn" class="mini-action" aria-label="Copy room code">COPY</button>
         </div>
-        <button id="leaveBtn" class="icon-btn danger" aria-label="Leave room">Leave</button>
+        <div class="top-actions">
+          <span id="liveBadge" class="live-badge"><i></i> LIVE</span>
+          <button id="leaveBtn" class="mini-action danger" aria-label="Leave room">Leave</button>
+        </div>
       </header>
 
       <div class="game-layout">
-        <aside class="side-panel players-panel panel">
+        <aside class="side-panel glass-panel">
           <div class="section-head">
             <div>
               <p class="eyebrow">PLAYERS</p>
-              <h2>In the room</h2>
+              <h2>At the table</h2>
             </div>
             <span id="playerCount" class="count-badge">1/6</span>
           </div>
           <div id="playersList" class="players-list"></div>
 
-          <div class="voice-card">
-            <div>
+          <div class="voice-card inner-card">
+            <div class="voice-copy">
               <strong>Voice chat</strong>
-              <small id="voiceStatus">Tap mic to enable</small>
+              <small id="voiceStatus">Tap MIC to enable</small>
             </div>
             <div class="voice-actions">
               <button id="micBtn" class="round-btn off" aria-label="Toggle microphone" title="Microphone">
-                <span class="mic-on">MIC</span><span class="mic-off">MUTED</span>
+                <span class="mic-on">MIC</span><span class="mic-off">MUTE</span>
               </button>
-              <button id="speakerBtn" class="round-btn" aria-label="Toggle speaker" title="Speaker">
-                <span class="speaker-on">SPK</span><span class="speaker-off">OFF</span>
+              <button id="speakerBtn" class="round-btn" aria-label="Toggle speaker and game sound" title="Speaker and game sound">
+                <span class="speaker-on">SOUND</span><span class="speaker-off">OFF</span>
               </button>
             </div>
           </div>
 
-          <div class="reaction-card">
+          <div class="reaction-card inner-card">
             <div class="reaction-head">
               <div>
                 <strong>Stickers</strong>
-                <small>Send a live reaction</small>
+                <small>Pop a reaction on screen</small>
               </div>
               <select id="stickerTarget" aria-label="Sticker target">
                 <option value="all">Everyone</option>
@@ -85,33 +96,47 @@
               <span class="tray-empty">Loading stickers…</span>
             </div>
           </div>
+
+          <div class="game-key inner-card">
+            <div><span class="legend-snake"></span><b>Snake</b><small>Slides you down</small></div>
+            <div><span class="legend-ladder"></span><b>Ladder</b><small>Climbs you up</small></div>
+          </div>
         </aside>
 
         <section class="board-area">
-          <div class="status-strip panel">
-            <div>
+          <div class="status-strip glass-panel">
+            <div class="status-copy">
               <span id="statusLabel">Waiting room</span>
               <strong id="turnText">Invite at least one friend</strong>
             </div>
+            <div id="moveEvent" class="move-event">Ready to play</div>
             <div id="lastRollBadge" class="last-roll hidden">Rolled <b>–</b></div>
           </div>
 
-          <div class="board-wrap panel">
-            <div id="board" class="board" aria-label="Snakes and Ladders board"></div>
+          <div class="board-stage">
+            <div class="board-frame">
+              <div class="board-corner corner-tl">S</div>
+              <div class="board-corner corner-tr">100</div>
+              <div class="board-corner corner-bl">1</div>
+              <div class="board-corner corner-br">L</div>
+              <div id="board" class="board" aria-label="Snakes and Ladders board"></div>
+            </div>
           </div>
 
-          <div class="controls panel">
+          <div class="controls glass-panel">
             <div class="dice-wrap">
               <button id="diceBtn" class="dice" aria-label="Roll dice" disabled>
+                <span class="dice-shine"></span>
                 <span id="diceFace" class="dice-face">⚄</span>
               </button>
               <div>
-                <span class="eyebrow">YOUR MOVE</span>
+                <span class="eyebrow">TURN CONTROL</span>
                 <strong id="diceHint">Waiting for players</strong>
+                <small id="ruleHint">Exact roll required for 100</small>
               </div>
             </div>
-            <button id="startBtn" class="btn btn-primary hidden">Start Game</button>
-            <button id="restartBtn" class="btn btn-primary hidden">Play Again</button>
+            <button id="startBtn" class="btn btn-gold hidden">Start Game</button>
+            <button id="restartBtn" class="btn btn-gold hidden">Play Again</button>
           </div>
         </section>
       </div>
@@ -123,13 +148,15 @@
           <div id="stickerTargetLabel" class="sticker-pop-target"></div>
         </div>
       </div>
+
       <div id="notice" class="toast hidden" role="status"></div>
       <div id="winnerModal" class="modal hidden" role="dialog" aria-modal="true">
-        <div class="modal-card panel">
+        <div class="winner-card">
+          <div class="winner-rays"></div>
           <div class="crown">♛</div>
           <p class="eyebrow">GAME COMPLETE</p>
           <h2 id="winnerText">Winner!</h2>
-          <p>Made it to square 100 first.</p>
+          <p>Reached square 100 first.</p>
           <button id="winnerCloseBtn" class="btn btn-dark">View Board</button>
         </div>
       </div>

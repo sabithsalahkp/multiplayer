@@ -1,8 +1,8 @@
 {
   "name": "snakes-ladders-live",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Real-time multiplayer Snakes & Ladders with browser voice chat",
+  "description": "Premium animated real-time multiplayer Snakes & Ladders with voice chat, stickers and game effects",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

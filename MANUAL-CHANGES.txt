@@ -1,27 +1,28 @@
-MANUAL CHANGES YOU MAY NEED
-===========================
+FAST MANUAL STEPS
+=================
 
-TO PUBLISH:
-1. Upload this whole project to one GitHub repository.
-2. Render -> New -> Blueprint -> choose that repo.
-3. Deploy. No password, database, disk, or environment variable required.
+FIRST PUBLISH
+1. Upload ALL files/folders from this project to ONE GitHub repo.
+2. Render > New > Blueprint.
+3. Select the GitHub repo.
+4. Deploy and wait until it says Live.
+5. Test: https://YOUR-URL/health
+6. Main game: https://YOUR-URL/
+7. Admin: https://YOUR-URL/admin
 
-TO ADD A NEW STICKER PERMANENTLY:
-1. Put image in: public/stickers/
-2. Edit: data/stickers.json
-3. Add a line/object like:
-   {"id":"funny","name":"Funny","url":"/stickers/funny.png","enabled":true,"order":4}
-4. Commit to GitHub. Render redeploys.
+YOU DO NOT NEED
+- database
+- admin password
+- environment variable
+- persistent disk
 
-TO CHANGE GAME SETTINGS PERMANENTLY:
+ADD A STICKER PERMANENTLY
+1. Upload PNG/JPG/WEBP to public/stickers/
+2. Add its entry in data/stickers.json
+3. Commit. Render redeploys automatically.
+
+CHANGE GAME RULES PERMANENTLY
 Edit data/settings.json and commit.
 
-GAME URL:
-https://YOUR-RENDER-URL/
-
-ADMIN URL:
-https://YOUR-RENDER-URL/admin
-
-NO ADMIN PASSWORD.
-NO DATABASE.
-NO PERSISTENT DISK.
+IMPORTANT
+/admin has no password, so anyone who knows that URL can open it.

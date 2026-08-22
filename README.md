@@ -1,73 +1,70 @@
-# Snakes & Ladders Live — Simple GitHub + Render version
+# Snakes & Ladders Live — Animated GitHub + Render version
 
-This version is intentionally simple: **no admin password, no database, no persistent disk, no sticker upload service**.
+A ready-to-publish multiplayer Snakes & Ladders game for Chrome/mobile browsers.
 
-- `/` = multiplayer game
-- `/admin` = open admin page
+## Pages
 
-## Included
+- `/` — multiplayer game
+- `/admin` — open admin controls (no password)
+- `/health` — server health check
 
-- 2–6 player room multiplayer
-- Create / join room codes
+## New premium game features
+
+- Fully animated pawn movement, square by square
+- Large 3D-style board-game pawns instead of dots
+- Every player stays visible; players sharing the same square are automatically arranged beside each other
+- Detailed animated SVG snakes with heads, eyes, scales and tongue movement
+- Wooden 3D-style ladders
+- Snake-slide animation and ladder-climb animation
+- Dice shake animation
+- Built-in game sound effects generated in the browser: dice, steps, snake hiss, ladder chime, turn alert, stickers, join, start and win fanfare
+- SOUND button mutes/unmutes both remote voice playback and game effects
+- Live microphone mute/unmute
+- Create/join rooms for 2–6 players
 - Server-controlled dice and turns
-- Snakes & ladders board
-- Browser voice chat with mic mute and speaker mute
-- Sticker tray
-- Sticker popup appears on sender + selected opponent, or everyone
-- Open admin page for live game settings and room status
-- Live sticker rename/on/off controls
-- Three starter sticker images
-- Render Blueprint config included
+- Sticker popups sent to yourself, another player, or everyone
+- Better connection status and room-create error feedback
+- Responsive desktop/mobile design
 
-## Fastest publish
+## Fast publish with GitHub + Render
 
-1. Create a new GitHub repository.
-2. Upload **all files and folders from this project** to the repository root.
-3. In Render choose **New > Blueprint**.
-4. Connect that GitHub repository.
-5. Render reads `render.yaml`; click deploy/create service.
-6. Wait until Render says **Live**.
-7. Game: your Render URL.
-8. Admin: your Render URL + `/admin`.
+1. Create a GitHub repository.
+2. Upload every file/folder from this project to the repository root.
+3. In Render choose **New > Blueprint** and select the repository.
+4. Render reads `render.yaml` and creates the Node Web Service.
+5. Wait until the service says **Live**.
+6. Open the Render URL and test `/health`. It should return `{ "ok": true }`.
+7. Open the main URL on two devices, create a room on one and join with the room code on the other.
 
-There is **no password or environment variable to create**.
+No database, password, persistent disk or environment variable is required for the normal game.
 
-## What you change manually in GitHub
+## Permanent sticker changes
 
-### Add a permanent sticker
+Upload the image into `public/stickers/`, then edit `data/stickers.json` and add a matching entry.
 
-1. Upload the image to `public/stickers/`.
-2. Open `data/stickers.json`.
-3. Add an entry such as:
+Example:
 
 ```json
 {"id":"funny","name":"Funny","url":"/stickers/funny.png","enabled":true,"order":4}
 ```
 
-Use a unique `id`, exact image filename in `url`, and a new `order` number.
-Commit the change. Render will redeploy from GitHub.
+Commit to GitHub. Render will redeploy.
 
-### Permanently change game defaults
+## Permanent rule changes
 
-Edit `data/settings.json` in GitHub:
+Edit `data/settings.json`:
 
-- `maxPlayers`: 2 to 6
-- `minPlayers`: 2 to 6
+- `maxPlayers`: 2–6
+- `minPlayers`: 2–6
 - `exactRollToWin`: true/false
 - `extraTurnOnSix`: true/false
 - `stickerPopupMs`: sticker popup duration
-- `stickerCooldownMs`: delay before another sticker can be sent
+- `stickerCooldownMs`: delay before another sticker
 
-Commit the change and Render redeploys.
+## Voice note
 
-## Admin page behavior
+Microphone access needs HTTPS, which the Render public URL provides. STUN is included. Some restrictive mobile networks can require TURN for voice connectivity, but this is optional and does not affect normal game rooms/dice/stickers.
 
-The admin page has no password. It can change game settings and sticker names/on-off state immediately for the currently running server. Those live changes are intentionally not stored permanently and reset when Render restarts or redeploys.
+## Admin note
 
-For permanent changes, edit the two JSON files in GitHub as described above.
-
-## Important
-
-Because `/admin` has no password, anyone who knows the `/admin` URL can change the live settings. This is the tradeoff for having zero admin setup.
-
-For microphone access, use the HTTPS Render URL. Public STUN servers are included. Some difficult mobile networks may need TURN for reliable voice, but no TURN setup is required just to publish and test the game.
+`/admin` is intentionally open because this build was requested with no admin password. Live admin changes reset when Render restarts/redeploys. Permanent defaults should be changed in GitHub.
