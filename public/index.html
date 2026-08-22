@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1321" />
+  <meta name="description" content="Play stylish multiplayer Snakes & Ladders with live browser voice chat and stickers." />
+  <title>Snakes & Ladders Live</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="noise"></div>
+  <main class="app-shell">
+    <section id="landing" class="landing panel">
+      <div class="brand-mark">S<span>&</span>L</div>
+      <p class="eyebrow">LIVE MULTIPLAYER</p>
+      <h1>Snakes <span>&</span> Ladders</h1>
+      <p class="sub">Classic board. Real friends. Live voice. Reactions.</p>
+
+      <label class="field">
+        <span>Your name</span>
+        <input id="nameInput" maxlength="18" autocomplete="nickname" placeholder="Enter your name" />
+      </label>
+
+      <div class="landing-actions">
+        <button id="createBtn" class="btn btn-primary">Create Room</button>
+        <div class="or"><span></span><b>OR</b><span></span></div>
+        <div class="join-row">
+          <input id="roomInput" maxlength="6" autocomplete="off" placeholder="ROOM CODE" />
+          <button id="joinBtn" class="btn btn-dark">Join</button>
+        </div>
+      </div>
+      <p id="landingError" class="error" role="alert"></p>
+      <div id="landingFoot" class="landing-foot">2–6 players · Voice chat · Stickers · No account needed</div>
+    </section>
+
+    <section id="gameView" class="game-view hidden">
+      <header class="topbar">
+        <div class="brand-mini">S&L</div>
+        <div class="room-chip">
+          <span>ROOM</span>
+          <strong id="roomCode">------</strong>
+          <button id="copyCodeBtn" class="icon-btn small" aria-label="Copy room code">COPY</button>
+        </div>
+        <button id="leaveBtn" class="icon-btn danger" aria-label="Leave room">Leave</button>
+      </header>
+
+      <div class="game-layout">
+        <aside class="side-panel players-panel panel">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">PLAYERS</p>
+              <h2>In the room</h2>
+            </div>
+            <span id="playerCount" class="count-badge">1/6</span>
+          </div>
+          <div id="playersList" class="players-list"></div>
+
+          <div class="voice-card">
+            <div>
+              <strong>Voice chat</strong>
+              <small id="voiceStatus">Tap mic to enable</small>
+            </div>
+            <div class="voice-actions">
+              <button id="micBtn" class="round-btn off" aria-label="Toggle microphone" title="Microphone">
+                <span class="mic-on">MIC</span><span class="mic-off">MUTED</span>
+              </button>
+              <button id="speakerBtn" class="round-btn" aria-label="Toggle speaker" title="Speaker">
+                <span class="speaker-on">SPK</span><span class="speaker-off">OFF</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="reaction-card">
+            <div class="reaction-head">
+              <div>
+                <strong>Stickers</strong>
+                <small>Send a live reaction</small>
+              </div>
+              <select id="stickerTarget" aria-label="Sticker target">
+                <option value="all">Everyone</option>
+              </select>
+            </div>
+            <div id="stickerTray" class="sticker-tray" aria-live="polite">
+              <span class="tray-empty">Loading stickers…</span>
+            </div>
+          </div>
+        </aside>
+
+        <section class="board-area">
+          <div class="status-strip panel">
+            <div>
+              <span id="statusLabel">Waiting room</span>
+              <strong id="turnText">Invite at least one friend</strong>
+            </div>
+            <div id="lastRollBadge" class="last-roll hidden">Rolled <b>–</b></div>
+          </div>
+
+          <div class="board-wrap panel">
+            <div id="board" class="board" aria-label="Snakes and Ladders board"></div>
+          </div>
+
+          <div class="controls panel">
+            <div class="dice-wrap">
+              <button id="diceBtn" class="dice" aria-label="Roll dice" disabled>
+                <span id="diceFace" class="dice-face">⚄</span>
+              </button>
+              <div>
+                <span class="eyebrow">YOUR MOVE</span>
+                <strong id="diceHint">Waiting for players</strong>
+              </div>
+            </div>
+            <button id="startBtn" class="btn btn-primary hidden">Start Game</button>
+            <button id="restartBtn" class="btn btn-primary hidden">Play Again</button>
+          </div>
+        </section>
+      </div>
+
+      <div id="stickerPopup" class="sticker-popup hidden" role="status" aria-live="assertive">
+        <div class="sticker-pop-card">
+          <div id="stickerSender" class="sticker-pop-sender">Sticker</div>
+          <img id="stickerPopupImage" alt="Sticker reaction" />
+          <div id="stickerTargetLabel" class="sticker-pop-target"></div>
+        </div>
+      </div>
+      <div id="notice" class="toast hidden" role="status"></div>
+      <div id="winnerModal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-card panel">
+          <div class="crown">♛</div>
+          <p class="eyebrow">GAME COMPLETE</p>
+          <h2 id="winnerText">Winner!</h2>
+          <p>Made it to square 100 first.</p>
+          <button id="winnerCloseBtn" class="btn btn-dark">View Board</button>
+        </div>
+      </div>
+      <div id="remoteAudio" aria-hidden="true"></div>
+    </section>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/game.js"></script>
+</body>
+</html>

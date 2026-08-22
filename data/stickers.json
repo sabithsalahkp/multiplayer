@@ -1,0 +1,5 @@
+[
+  {"id":"laugh","name":"Laugh","url":"/stickers/laugh.png","enabled":true,"order":1},
+  {"id":"confident","name":"Confident","url":"/stickers/confident.png","enabled":true,"order":2},
+  {"id":"shy","name":"Shy","url":"/stickers/shy.png","enabled":true,"order":3}
+]

@@ -1,0 +1,8 @@
+{
+  "maxPlayers": 6,
+  "minPlayers": 2,
+  "exactRollToWin": true,
+  "extraTurnOnSix": false,
+  "stickerPopupMs": 2600,
+  "stickerCooldownMs": 1400
+}

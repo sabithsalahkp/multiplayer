@@ -1,0 +1,27 @@
+MANUAL CHANGES YOU MAY NEED
+===========================
+
+TO PUBLISH:
+1. Upload this whole project to one GitHub repository.
+2. Render -> New -> Blueprint -> choose that repo.
+3. Deploy. No password, database, disk, or environment variable required.
+
+TO ADD A NEW STICKER PERMANENTLY:
+1. Put image in: public/stickers/
+2. Edit: data/stickers.json
+3. Add a line/object like:
+   {"id":"funny","name":"Funny","url":"/stickers/funny.png","enabled":true,"order":4}
+4. Commit to GitHub. Render redeploys.
+
+TO CHANGE GAME SETTINGS PERMANENTLY:
+Edit data/settings.json and commit.
+
+GAME URL:
+https://YOUR-RENDER-URL/
+
+ADMIN URL:
+https://YOUR-RENDER-URL/admin
+
+NO ADMIN PASSWORD.
+NO DATABASE.
+NO PERSISTENT DISK.
