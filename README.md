@@ -1,30 +1,31 @@
-# PlayVerse Premium V8
+# PlayVerse V9
 
-Three Chrome multiplayer games in one room:
+Simple friend-play version for GitHub + Render.
 
-- Snakes & Ladders
-- Tic Tac Toe
-- Word Search
+## Public room flow
 
-## V8 fixes
+- Open the site.
+- Enter your name.
+- Create a room, or tap a visible room created by another player.
+- No room code, password, account or database is required.
+- Open rooms update live for everyone visiting the site.
 
-- Rebuilt the Snakes & Ladders board so the snakes and ladders are always visible at the correct scale.
-- Restored the classic wooden-board look and chess-style pawns.
-- Added more natural multi-curve snake bodies, forward-facing heads, eyes, tongue, shading and classic wooden ladders.
-- Real 3D pip dice with smooth roll animation and sound.
-- Server turn lock: the next player cannot roll until dice + pawn + snake/ladder movement is finished.
-- Play Again button works after a Snakes & Ladders win.
-- If a player leaves during a move, the room recovers instead of leaving the game locked.
-- Tic Tac Toe cells stay exactly the same size whether empty, X or O.
-- Word Search gives each player 60 seconds. When time reaches zero, the server automatically passes the turn.
-- Word timer is visible to everyone with a countdown bar and final-10-second warning.
-- Mobile layouts were checked for horizontal overflow.
-- Sound effects default ON. Voice mic and speaker controls remain available.
+## Games
 
-## Deploy
+- Snakes & Ladders: classic wooden board, clean snakes, chess-style pawns, 3D pip dice, locked turn animations.
+- Tic Tac Toe: fixed-size 3×3 multiplayer board.
+- Word Search: turn-based word finding with a server-controlled 60-second timer shown above the letter grid.
 
-Upload all files to the root of the GitHub repo already connected to Render and commit. Render will redeploy automatically.
+## Installable
 
-No database, admin password, persistent disk or environment variable is required for this build.
+The project includes a web app manifest, icons and service worker. On supported Chrome browsers an Install Game button appears when the site meets install requirements. The browser's Install/Add to Home Screen option also works.
 
-Health check: `/health` should return version `8.0.0`.
+## Publish
+
+1. Upload all files/folders to the root of one GitHub repository.
+2. Connect the repository to Render as a Web Service or Blueprint.
+3. Build: `npm install`
+4. Start: `npm start`
+5. No environment variables are required.
+
+Health check: `/health` returns version `9.0.0`.

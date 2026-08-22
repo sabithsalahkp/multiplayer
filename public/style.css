@@ -184,3 +184,73 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 .ttt-cell{width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;aspect-ratio:auto!important;overflow:hidden;contain:layout paint}
 .ttt-cell.pop{animation:markCellGlowV8 .28s ease!important}
 @keyframes markCellGlowV8{0%{filter:brightness(1.45)}100%{filter:brightness(1)}}
+
+/* ===== PLAYVERSE V9 — SIMPLE PUBLIC ROOMS + POLISHED CLASSIC GAME ===== */
+.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+
+/* Public room browser: no codes, no passwords. */
+.lobby-landing{padding:5vh 0 3vh}
+.lobby-hero{margin-bottom:20px}.lobby-hero h1{font-size:clamp(42px,7vw,68px)}.lobby-hero p{max-width:620px;margin-inline:auto}
+.lobby-card{width:min(680px,100%);margin:0 auto;border-radius:28px;padding:20px}
+.lobby-card .name-field input{width:100%;height:54px;border-radius:15px;border:1px solid #2a3859;background:#090f1e;color:#fff;padding:0 15px;outline:none;font-size:16px}
+.lobby-card .name-field input:focus{border-color:#825cff;box-shadow:0 0 0 3px rgba(123,92,255,.12)}
+.install-btn{width:100%;min-height:46px;margin-top:9px;border:1px solid #394c75;border-radius:14px;background:#131d33;color:#e6ecf9;font-weight:900}
+.rooms-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0 9px;padding-top:14px;border-top:1px solid #253352}.rooms-head>div{min-width:0;display:flex;flex-direction:column}.rooms-head b{font-size:14px}.rooms-head small{color:#7f8da6;font-size:10px;margin-top:2px}.refresh-btn{width:42px;height:42px;border-radius:13px;border:1px solid #2d3e61;background:#111b30;color:#cbd6e9;font-size:22px}.refresh-btn.spinning{animation:refreshSpin .45s ease}@keyframes refreshSpin{to{transform:rotate(360deg)}}
+.rooms-list{display:grid;gap:8px}.room-card{width:100%;min-width:0;display:grid;grid-template-columns:45px minmax(0,1fr) auto;align-items:center;gap:10px;text-align:left;padding:10px;border:1px solid #263655;border-radius:15px;background:linear-gradient(145deg,#111a2d,#0b1221);color:#eef3ff;transition:transform .14s,border-color .14s,background .14s}.room-card:active{transform:scale(.985)}.room-card:disabled{opacity:.5}.room-avatar{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-weight:1000;font-size:18px;background:linear-gradient(135deg,#7658ff,#f03bb6);box-shadow:inset 0 1px #fff3}.room-info{min-width:0;display:flex;flex-direction:column}.room-info b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}.room-info small{margin-top:3px;color:#8392ad;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.room-join{padding:7px 9px;border-radius:9px;background:#21315a;color:#b9ccff;font-size:9px;font-weight:1000;letter-spacing:.1em}.rooms-empty{display:grid;place-items:center;text-align:center;padding:25px 10px 16px;color:#8290a8}.rooms-empty span{font-size:28px;color:#6e7d99}.rooms-empty b{margin-top:5px;color:#bcc7da;font-size:13px}.rooms-empty small{margin-top:4px;max-width:320px;font-size:10px;line-height:1.5}
+
+/* Top bar is cleaner because rooms are discovered publicly. */
+.topbar{grid-template-columns:minmax(0,1fr) auto!important}.top-actions{justify-self:end}.room-chip{display:none!important}
+
+/* Classic board: warm wood, readable cells, clean game-piece art. */
+#snakesView .board-frame{padding:14px!important;border-radius:24px!important;background:linear-gradient(135deg,#4a2914 0%,#98613a 10%,#d6a86a 19%,#6e4124 31%,#382012 48%,#9a6338 65%,#d7aa6d 82%,#4b2b17 100%)!important;box-shadow:0 28px 64px #0008,inset 0 0 0 2px #211108,inset 0 0 0 5px #f1cb8a45,inset 0 0 24px #1b0d066e!important}
+#snakesView .board-frame:before{inset:6px!important;border-color:#f4d69b55!important}
+#snakesView .board-frame:after{inset:9px!important;border-color:#28150a99!important}
+#snakesView .snakes-board{border-radius:8px!important;background:#ead8b4!important;box-shadow:inset 0 0 0 1px #5b3a20aa,inset 0 0 24px #6d48291d,0 5px 14px #190b0666!important}
+#snakesView .board-cell{font-family:Georgia,'Times New Roman',serif!important;font-weight:800!important;border-color:#72523922!important;color:#3e2c1d!important;text-shadow:0 1px #fff8!important}
+#snakesView .board-cell:nth-child(5n+1){background:linear-gradient(145deg,#f4e8ce,#dfcaa7)!important}
+#snakesView .board-cell:nth-child(5n+2){background:linear-gradient(145deg,#a9c2aa,#8ca88d)!important;color:#29402b!important}
+#snakesView .board-cell:nth-child(5n+3){background:linear-gradient(145deg,#d8aa8a,#c08c6d)!important;color:#523223!important}
+#snakesView .board-cell:nth-child(5n+4){background:linear-gradient(145deg,#e2d59c,#cbbb79)!important;color:#413a1f!important}
+#snakesView .board-cell:nth-child(5n){background:linear-gradient(145deg,#a6b9ce,#879cb5)!important;color:#2d3d4f!important}
+
+/* Snakes: no ugly dark outline; soft dimensional shadow + natural highlight. */
+#snakesView .snake-group{animation:snakeAliveV9 4.4s ease-in-out infinite alternate!important;filter:drop-shadow(.28px .65px .42px rgba(39,24,12,.32))!important}
+#snakesView .snake-body-under{display:none!important}
+#snakesView .snake-soft-shadow{fill:none!important;stroke:rgba(37,25,14,.18)!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+#snakesView .snake-body{fill:none!important;stroke-linecap:round!important;stroke-linejoin:round!important;filter:none!important}
+#snakesView .snake-highlight{fill:none!important;stroke:rgba(255,251,223,.30)!important;stroke-linecap:round!important;stroke-dasharray:2.6 1.8!important}
+#snakesView .snake-belly{display:none!important}
+#snakesView .snake-scales{fill:none!important;stroke:rgba(30,48,27,.28)!important;stroke-linecap:round!important;stroke-dasharray:.22 1.3!important;opacity:.65!important}
+#snakesView .snake-head{stroke:none!important;filter:none!important}
+#snakesView .snake-head-shine{fill:none;stroke:rgba(255,255,225,.25);stroke-width:.24;stroke-linecap:round}
+#snakesView .snake-snout{opacity:.88!important}.snake-mouth{fill:none;stroke:rgba(62,27,22,.62);stroke-width:.22;stroke-linecap:round}
+#snakesView .snake-eye{fill:#fff9df!important;stroke:none!important}.snake-pupil{fill:#131710!important}.snake-nostril{fill:#3d281b!important}.snake-tongue{stroke:#c92845!important;stroke-width:.32!important}
+@keyframes snakeAliveV9{0%{transform:translate(-.05px,.05px) rotate(-.035deg)}100%{transform:translate(.08px,-.08px) rotate(.035deg)}}
+
+/* Smoother physical dice roll, still synchronized by the server. */
+.dice-cube.rolling .dice-inner{animation:diceCubeRollV9 1.35s cubic-bezier(.12,.66,.16,1) both!important}
+@keyframes diceCubeRollV9{
+  0%{transform:translate3d(0,0,0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1)}
+  12%{transform:translate3d(-4px,-20px,0) rotateX(115deg) rotateY(88deg) rotateZ(42deg) scale(.98)}
+  28%{transform:translate3d(3px,-37px,0) rotateX(285deg) rotateY(235deg) rotateZ(126deg) scale(1.035)}
+  46%{transform:translate3d(-2px,-19px,0) rotateX(485deg) rotateY(405deg) rotateZ(238deg) scale(.99)}
+  64%{transform:translate3d(3px,-32px,0) rotateX(665deg) rotateY(570deg) rotateZ(348deg) scale(1.02)}
+  80%{transform:translate3d(-1px,-10px,0) rotateX(820deg) rotateY(690deg) rotateZ(446deg) scale(.985)}
+  92%{transform:translate3d(0,-4px,0) rotateX(885deg) rotateY(748deg) rotateZ(500deg) scale(1.01)}
+  100%{transform:translate3d(0,0,0) rotateX(900deg) rotateY(720deg) rotateZ(540deg) scale(1)}
+}
+.dice-cube.landed{animation:diceLandV9 .4s cubic-bezier(.18,.82,.24,1.2)!important}@keyframes diceLandV9{0%{transform:translateY(-8px) scale(1.035)}45%{transform:translateY(4px) scale(.97,1.025)}72%{transform:translateY(-2px) scale(1.01)}100%{transform:none}}
+
+/* Word timer is always above the playable grid. */
+.word-layout-v9{grid-template-columns:minmax(300px,620px) minmax(230px,1fr)!important;align-items:start!important}
+.word-main{min-width:0;display:grid;gap:10px}.word-turn-top{margin:0;width:100%;padding:12px 13px!important;border-radius:16px!important;background:linear-gradient(145deg,#101a2f,#0b1425)!important}.word-turn-top .word-turn-line{grid-template-columns:minmax(0,1fr) 74px!important}.word-turn-top #wordSelectionText{font-size:10px!important}.word-board-wrap{min-width:0}.word-board{width:100%!important;max-width:620px!important}.word-side{align-self:start}
+
+@media (hover:hover) and (pointer:fine){.room-card:hover{border-color:#5d66d8;background:linear-gradient(145deg,#151f37,#0e1628);transform:translateY(-1px)}}
+@media(max-width:1050px){.word-layout-v9{grid-template-columns:1fr!important}.word-main,.word-side{width:min(100%,620px);margin-inline:auto}.word-side{margin-top:2px}.topbar{grid-template-columns:1fr!important}.top-actions{justify-self:stretch}}
+@media(max-width:720px){
+  .lobby-landing{padding:24px 0 10px}.lobby-hero{margin-bottom:14px}.lobby-hero .logo{width:54px;height:54px;border-radius:17px;font-size:29px}.lobby-hero h1{font-size:46px}.lobby-hero p{font-size:13px;padding-inline:12px}.lobby-card{padding:14px;border-radius:20px}.rooms-head{margin-top:7px}.room-card{grid-template-columns:40px minmax(0,1fr) auto;padding:9px}.room-avatar{width:38px;height:38px;border-radius:12px;font-size:16px}.room-info b{font-size:13px}.room-info small{font-size:9px}.room-join{font-size:8px;padding:6px 7px}
+  .topbar{position:static!important;grid-template-columns:1fr!important}.top-actions{grid-column:auto!important;grid-template-columns:repeat(auto-fit,minmax(52px,1fr))!important;display:grid!important}.icon-btn{padding-inline:3px!important}.icon-btn b{font-size:7px!important}
+  #snakesView .board-frame{padding:7px!important;border-radius:17px!important}#snakesView .board-frame:before{inset:3px!important}#snakesView .board-frame:after{inset:5px!important}
+  .word-layout-v9{gap:11px!important}.word-main{gap:7px}.word-turn-top{padding:9px 10px!important}.word-turn-top .word-turn-line{grid-template-columns:minmax(0,1fr) 68px!important}.word-turn-top #wordSelectionText{font-size:9px!important}.tap-help{margin-top:7px!important;font-size:10px!important}
+}
+@media(max-width:390px){.lobby-card{padding:11px}.room-card{grid-template-columns:36px minmax(0,1fr) auto;gap:8px}.room-avatar{width:34px;height:34px}.room-info small{font-size:8px}.top-actions{gap:4px!important}.icon-btn{height:41px!important}.word-turn-top .word-turn-line{grid-template-columns:minmax(0,1fr) 64px!important}.word-timer-text{min-width:64px!important;font-size:16px!important}}

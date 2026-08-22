@@ -44,6 +44,20 @@ function publicStickers(){ return stickers.filter(s => s.enabled).sort((a,b)=>(a
 function roomOf(socket){ return rooms.get(socket.data.roomCode); }
 function notice(r,msg){ io.to(r.code).emit('room:notice',msg); }
 function emitRoom(r){ io.to(r.code).emit('room:state', pubRoom(r)); }
+function lobbyRooms(){
+  return [...rooms.values()]
+    .filter(r=>r.players.length>0 && r.players.length < settings.maxPlayers)
+    .sort((a,b)=>b.createdAt-a.createdAt)
+    .map(r=>{
+      const host=r.players.find(p=>p.id===r.hostId)||r.players[0];
+      const status=r.activeGame==='snakes'?r.snakes.status:r.activeGame==='tictactoe'?r.ttt.status:r.wordsearch.status;
+      return {
+        id:r.code, hostName:host?.name||'Player', playerCount:r.players.length, maxPlayers:settings.maxPlayers,
+        game:r.activeGame, status, createdAt:r.createdAt
+      };
+    });
+}
+function broadcastLobby(){ io.emit('lobby:update',{rooms:lobbyRooms()}); }
 
 function seeded(seed){
   let x = seed >>> 0;
@@ -133,7 +147,7 @@ function leaveRoom(socket){
   const affectedTttPlayer=idx<2;
   const [gone]=r.players.splice(idx,1); socket.leave(r.code); socket.data.roomCode=null;
   socket.to(r.code).emit('rtc:peer-left',{peerId:socket.id});
-  if(!r.players.length){ stopWordTurn(r); rooms.delete(r.code); return; }
+  if(!r.players.length){ stopWordTurn(r); rooms.delete(r.code); broadcastLobby(); return; }
   if(r.hostId===socket.id) r.hostId=r.players[0].id;
   r.snakes.turnIndex=Math.min(r.snakes.turnIndex,Math.max(0,r.players.length-1));
   if(affectedTttPlayer){r.ttt={status:'ready',board:Array(9).fill(null),turnIndex:0,winnerId:null,round:(r.ttt.round||1)+1};}
@@ -143,7 +157,7 @@ function leaveRoom(socket){
     r.snakes.status='lobby';r.snakes.phase='idle';r.snakes.rolling=false;r.snakes.winnerId=null;r.snakes.lastMove=null;r.snakes.lastRoll=null;r.snakes.moveSeq++;r.snakes.turnReadyAt=0;r.snakes.turnIndex=0;
   }
   if(r.activeGame==='wordsearch') beginWordTurn(r);
-  notice(r,`${gone.name} left.`); emitRoom(r);
+  notice(r,`${gone.name} left.`); emitRoom(r); broadcastLobby();
 }
 function tttWinner(b){ const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; return lines.find(([a,c,d])=>b[a]&&b[a]===b[c]&&b[a]===b[d])||null; }
 function normalizeSelection(start,end,size){
@@ -162,9 +176,10 @@ function samePath(a,b){ return a.length===b.length&&a.every((v,i)=>v===b[i]); }
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static(PUBLIC_DIR));
-app.get('/health',(_q,res)=>res.json({ok:true,version:'8.0.0'}));
+app.get('/health',(_q,res)=>res.json({ok:true,version:'9.0.0'}));
 app.get('/config',(_q,res)=>res.json({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],settings:publicSettings()}));
 app.get('/api/stickers',(_q,res)=>res.json({ok:true,stickers:publicStickers()}));
+app.get('/api/rooms',(_q,res)=>res.json({ok:true,rooms:lobbyRooms()}));
 app.get('/admin',(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'admin.html')));
 app.get(['/snakes','/tic-tac-toe','/word-search'],(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'index.html')));
 app.get('/api/admin/dashboard',(_q,res)=>res.json({ok:true,settings:publicSettings(),stickers,rooms:[...rooms.values()].map(r=>({code:r.code,game:r.activeGame,players:r.players.map(p=>p.name)}))}));
@@ -172,7 +187,7 @@ app.put('/api/admin/settings',(req,res)=>{
   const b=req.body||{};
   settings={...settings,maxPlayers:Math.round(clamp(b.maxPlayers,2,6)),minPlayers:Math.round(clamp(b.minPlayers,2,6)),exactRollToWin:!!b.exactRollToWin,extraTurnOnSix:!!b.extraTurnOnSix,stickerPopupMs:Math.round(clamp(b.stickerPopupMs,1000,6000)),stickerCooldownMs:Math.round(clamp(b.stickerCooldownMs,300,5000)),soundDefaultOn:b.soundDefaultOn!==false};
   if(settings.minPlayers>settings.maxPlayers)settings.minPlayers=settings.maxPlayers;
-  io.emit('game:settings',publicSettings()); res.json({ok:true,settings,persistent:false});
+  io.emit('game:settings',publicSettings()); broadcastLobby(); res.json({ok:true,settings,persistent:false});
 });
 app.patch('/api/admin/stickers/:id',(req,res)=>{
   const s=stickers.find(x=>x.id===req.params.id); if(!s)return res.status(404).json({ok:false});
@@ -181,22 +196,22 @@ app.patch('/api/admin/stickers/:id',(req,res)=>{
 });
 
 io.on('connection',socket=>{
-  socket.emit('game:settings',publicSettings()); socket.emit('stickers:update',publicStickers());
+  socket.emit('game:settings',publicSettings()); socket.emit('stickers:update',publicStickers()); socket.emit('lobby:update',{rooms:lobbyRooms()});
 
   socket.on('room:create',(payload={},ack=()=>{})=>{
     try{
       leaveRoom(socket); const c=code(); const p={id:socket.id,name:cleanName(payload.name),colorIndex:0,position:1}; const r=initRoom(c,p);
-      rooms.set(c,r); socket.join(c); socket.data.roomCode=c; socket.data.playerName=p.name; ack({ok:true,room:pubRoom(r)}); emitRoom(r);
+      rooms.set(c,r); socket.join(c); socket.data.roomCode=c; socket.data.playerName=p.name; ack({ok:true,room:pubRoom(r)}); emitRoom(r); broadcastLobby();
     }catch(e){ console.error(e); ack({ok:false,error:'Could not create room.'}); }
   });
   socket.on('room:join',(payload={},ack=()=>{})=>{
-    const c=String(payload.code||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6),r=rooms.get(c);
+    const c=String(payload.roomId||payload.code||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6),r=rooms.get(c);
     if(!r)return ack({ok:false,error:'Room not found.'}); if(r.players.length>=settings.maxPlayers)return ack({ok:false,error:'Room is full.'});
     leaveRoom(socket); const p={id:socket.id,name:cleanName(payload.name),colorIndex:r.players.length%6,position:1}; r.players.push(p);
     socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;
     socket.emit('rtc:peers',{peers:r.players.filter(x=>x.id!==socket.id).map(x=>x.id)}); socket.to(c).emit('rtc:peer-joined',{peerId:socket.id});
     if(r.activeGame==='wordsearch'&&r.players.length>=2&&!r.wordsearch.turnDeadline) beginWordTurn(r);
-    notice(r,`${p.name} joined.`); ack({ok:true,room:pubRoom(r)}); emitRoom(r);
+    notice(r,`${p.name} joined.`); ack({ok:true,room:pubRoom(r)}); emitRoom(r); broadcastLobby();
   });
   socket.on('room:leave',()=>leaveRoom(socket));
 
@@ -206,13 +221,13 @@ io.on('connection',socket=>{
     if(r.activeGame==='wordsearch'&&game!=='wordsearch') stopWordTurn(r);
     r.activeGame=game;
     if(game==='wordsearch') beginWordTurn(r);
-    emitRoom(r); io.to(r.code).emit('game:selected',{game,path:GAME_PATHS[game]}); ack({ok:true});
+    emitRoom(r); broadcastLobby(); io.to(r.code).emit('game:selected',{game,path:GAME_PATHS[game]}); ack({ok:true});
   });
 
   socket.on('snakes:start',(_,ack=()=>{})=>{
     const r=roomOf(socket); if(!r)return ack({ok:false}); if(r.hostId!==socket.id)return ack({ok:false,error:'Host only.'});
     if(r.players.length<settings.minPlayers)return ack({ok:false,error:`Need ${settings.minPlayers} players.`});
-    r.players.forEach(p=>p.position=1); r.snakes={status:'playing',turnIndex:0,winnerId:null,lastRoll:null,lastMove:null,moveSeq:r.snakes.moveSeq+1,rolling:false,phase:'idle',turnReadyAt:Date.now()}; emitRoom(r); ack({ok:true});
+    r.players.forEach(p=>p.position=1); r.snakes={status:'playing',turnIndex:0,winnerId:null,lastRoll:null,lastMove:null,moveSeq:r.snakes.moveSeq+1,rolling:false,phase:'idle',turnReadyAt:Date.now()}; emitRoom(r); broadcastLobby(); ack({ok:true});
   });
   socket.on('snakes:roll',(_,ack=()=>{})=>{
     const r=roomOf(socket);
@@ -224,7 +239,7 @@ io.on('connection',socket=>{
     const roll=crypto.randomInt(1,7), p=r.players[idx], from=p.position;
     r.snakes.rolling=true; r.snakes.phase='rolling'; r.snakes.turnReadyAt=0;
     emitRoom(r);
-    io.to(r.code).emit('snakes:dice-roll',{playerId:p.id,roll,duration:1100});
+    io.to(r.code).emit('snakes:dice-roll',{playerId:p.id,roll,duration:1350});
     ack({ok:true,roll});
 
     setTimeout(()=>{
@@ -258,7 +273,7 @@ io.on('connection',socket=>{
         }
         if(to===100){
           r.snakes.status='won'; r.snakes.winnerId=p.id; r.snakes.phase='finished'; r.snakes.turnReadyAt=0;
-          emitRoom(r);
+          emitRoom(r); broadcastLobby();
           io.to(r.code).emit('game:win',{game:'snakes',winnerId:p.id,moveId});
           return;
         }
@@ -268,7 +283,7 @@ io.on('connection',socket=>{
         emitRoom(r);
         io.to(r.code).emit('snakes:turn-ready',{playerId:r.players[r.snakes.turnIndex]?.id||null});
       },animationMs);
-    },1120);
+    },1370);
   });
 
   socket.on('ttt:move',(payload={},ack=()=>{})=>{
@@ -311,4 +326,4 @@ io.on('connection',socket=>{
   socket.on('disconnect',()=>leaveRoom(socket));
 });
 
-server.listen(PORT,()=>console.log(`PlayVerse v8 running on ${PORT}`));
+server.listen(PORT,()=>console.log(`PlayVerse v9 running on ${PORT}`));

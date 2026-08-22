@@ -40,25 +40,76 @@ function sfx(name){
 document.addEventListener('pointerdown',ensureAudio,{once:true});
 
 // ---------- BASIC UI ----------
-const landing=$('landing'),gameShell=$('gameShell'),createBtn=$('createBtn'),joinBtn=$('joinBtn'),nameInput=$('nameInput'),roomInput=$('roomInput'),landingError=$('landingError');
-const roomCodeEl=$('roomCode'),playerCount=$('playerCount'),playersList=$('playersList'),gameNav=$('gameNav'),activeGameLabel=$('activeGameLabel'),toastStack=$('toastStack');
+const landing=$('landing'),gameShell=$('gameShell'),createBtn=$('createBtn'),nameInput=$('nameInput'),landingError=$('landingError');
+const roomsList=$('roomsList'),roomsEmpty=$('roomsEmpty'),roomsRefreshBtn=$('roomsRefreshBtn');
+const playerCount=$('playerCount'),playersList=$('playersList'),gameNav=$('gameNav'),activeGameLabel=$('activeGameLabel'),toastStack=$('toastStack');
+let publicRooms=[];
 function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;toastStack.appendChild(d);setTimeout(()=>d.remove(),2800)}
 function ackEmit(event,payload={}){return new Promise(resolve=>socket.emit(event,payload,res=>resolve(res||{ok:false,error:'No response'})))}
 function displayGameName(g){return {snakes:'Snakes & Ladders',tictactoe:'Tic Tac Toe',wordsearch:'Word Search'}[g]||g}
-function updateConn(ok){createBtn.disabled=!ok;joinBtn.disabled=!ok;$('connectionText').textContent=ok?'Game server connected':'Connecting…';document.querySelector('.connection')?.classList.toggle('online',ok)}
-socket.on('connect',()=>updateConn(true));socket.on('disconnect',()=>{updateConn(false);toast('Connection lost. Reconnecting…')});socket.on('connect_error',()=>updateConn(false));updateConn(socket.connected);
+function updateConn(ok){createBtn.disabled=!ok;$('connectionText').textContent=ok?'Game server connected':'Connecting…';document.querySelector('.connection')?.classList.toggle('online',ok);renderLobbyRooms()}
+function getPlayerName(){return nameInput.value.trim().slice(0,20)}
+function roomStateLabel(room){
+  if(room.game==='snakes')return room.status==='playing'?'Playing':'Waiting';
+  if(room.game==='tictactoe')return room.status==='playing'?'Playing':'Ready';
+  return room.status==='won'?'Finished':'Playing';
+}
+function renderLobbyRooms(){
+  if(!roomsList||!roomsEmpty)return;
+  roomsList.innerHTML='';
+  const rooms=(publicRooms||[]).filter(r=>r.playerCount<r.maxPlayers);
+  roomsEmpty.classList.toggle('hidden',rooms.length>0);
+  for(const room of rooms){
+    const btn=document.createElement('button');btn.type='button';btn.className='room-card';btn.dataset.roomId=room.id;btn.disabled=!socket.connected;
+    const avatar=document.createElement('span');avatar.className='room-avatar';avatar.textContent=(room.hostName||'P').trim().charAt(0).toUpperCase()||'P';
+    const info=document.createElement('span');info.className='room-info';
+    const name=document.createElement('b');name.textContent=room.hostName||'Player';
+    const meta=document.createElement('small');meta.textContent=`${displayGameName(room.game)} · ${room.playerCount}/${room.maxPlayers} players`;
+    info.append(name,meta);
+    const action=document.createElement('span');action.className='room-join';action.textContent='JOIN';
+    btn.append(avatar,info,action);roomsList.appendChild(btn);
+  }
+}
+async function refreshRooms(){
+  try{const r=await fetch('/api/rooms',{cache:'no-store'}),d=await r.json();if(d.ok){publicRooms=d.rooms||[];renderLobbyRooms()}}catch{}
+}
+async function joinPublicRoom(roomId){
+  const name=getPlayerName();if(!name){landingError.textContent='Enter your name first.';nameInput.focus();return}
+  landingError.textContent='';
+  const r=await ackEmit('room:join',{name,roomId});
+  if(!r.ok){landingError.textContent=r.error||'Could not join room.';refreshRooms();return}
+  enterRoom(r.room);
+}
+socket.on('connect',()=>{updateConn(true);refreshRooms()});socket.on('disconnect',()=>{updateConn(false);if(roomState)toast('Connection lost. Reconnecting…')});socket.on('connect_error',()=>updateConn(false));updateConn(socket.connected);
+socket.on('lobby:update',d=>{publicRooms=d?.rooms||[];renderLobbyRooms()});
 fetch('/config').then(r=>r.json()).then(d=>{appSettings={...appSettings,...(d.settings||{})};sfxOn=appSettings.soundDefaultOn!==false;renderAudioButtons()}).catch(()=>{});
 fetch('/api/stickers').then(r=>r.json()).then(d=>{stickerList=d.stickers||[];renderStickers()}).catch(()=>{});
-socket.on('game:settings',s=>{appSettings={...appSettings,...s};renderPlayers();renderAudioButtons()});socket.on('stickers:update',s=>{stickerList=s||[];renderStickers()});socket.on('room:notice',msg=>toast(msg));
+socket.on('game:settings',s=>{appSettings={...appSettings,...s};renderPlayers();renderAudioButtons();renderLobbyRooms()});socket.on('stickers:update',s=>{stickerList=s||[];renderStickers()});socket.on('room:notice',msg=>toast(msg));
 
-createBtn.addEventListener('click',async()=>{const name=nameInput.value.trim().slice(0,20);if(!name)return landingError.textContent='Enter your name.';landingError.textContent='';const r=await ackEmit('room:create',{name});if(!r.ok)return landingError.textContent=r.error||'Could not create room.';enterRoom(r.room)});
-joinBtn.addEventListener('click',async()=>{const name=nameInput.value.trim().slice(0,20),code=roomInput.value.trim().toUpperCase();if(!name)return landingError.textContent='Enter your name.';if(code.length!==6)return landingError.textContent='Enter the 6-character room code.';landingError.textContent='';const r=await ackEmit('room:join',{name,code});if(!r.ok)return landingError.textContent=r.error||'Could not join room.';enterRoom(r.room)});
-roomInput.addEventListener('input',()=>roomInput.value=roomInput.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6));nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')createBtn.click()});roomInput.addEventListener('keydown',e=>{if(e.key==='Enter')joinBtn.click()});
-$('copyCodeBtn').addEventListener('click',async()=>{if(!roomState)return;try{await navigator.clipboard.writeText(roomState.code);toast('Room code copied')}catch{toast(`Room: ${roomState.code}`)}});$('leaveBtn').addEventListener('click',()=>{socket.emit('room:leave');location.href='/'});
-function enterRoom(room){roomState=room;landing.classList.add('hidden');gameShell.classList.remove('hidden');roomCodeEl.textContent=room.code;visualPositions.clear();room.players.forEach(p=>visualPositions.set(p.id,p.position||1));renderAll();sfx('join');history.replaceState({},'',room.path||'/snakes')}
+createBtn.addEventListener('click',async()=>{const name=getPlayerName();if(!name){landingError.textContent='Enter your name.';nameInput.focus();return}landingError.textContent='';const r=await ackEmit('room:create',{name});if(!r.ok)return landingError.textContent=r.error||'Could not create room.';enterRoom(r.room)});
+roomsList.addEventListener('click',e=>{const btn=e.target.closest('.room-card');if(btn&&!btn.disabled)joinPublicRoom(btn.dataset.roomId)});
+roomsRefreshBtn?.addEventListener('click',()=>{roomsRefreshBtn.classList.add('spinning');refreshRooms().finally(()=>setTimeout(()=>roomsRefreshBtn.classList.remove('spinning'),350))});
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')createBtn.click()});
+$('leaveBtn').addEventListener('click',()=>{socket.emit('room:leave');roomState=null;location.href='/'});
+function enterRoom(room){roomState=room;landing.classList.add('hidden');gameShell.classList.remove('hidden');visualPositions.clear();room.players.forEach(p=>visualPositions.set(p.id,p.position||1));renderAll();sfx('join');history.replaceState({},'',room.path||'/snakes')}
+
+// ---------- INSTALLABLE PWA ----------
+let deferredInstallPrompt=null;
+const installButtons=[$('installLandingBtn'),$('installTopBtn')].filter(Boolean);
+function showInstallButtons(show){installButtons.forEach(b=>b.classList.toggle('hidden',!show))}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;showInstallButtons(true)});
+async function promptInstall(){
+  if(!deferredInstallPrompt)return;
+  deferredInstallPrompt.prompt();
+  try{await deferredInstallPrompt.userChoice}catch{}
+  deferredInstallPrompt=null;showInstallButtons(false);
+}
+installButtons.forEach(b=>b.addEventListener('click',promptInstall));
+window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;showInstallButtons(false);toast('PlayVerse installed')});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(()=>{}))}
 
 socket.on('room:state',state=>{
-  const old=roomState;roomState=state;if(!gameShell.classList.contains('hidden'))roomCodeEl.textContent=state.code;
+  const old=roomState;roomState=state;
   for(const p of state.players)if(!visualPositions.has(p.id))visualPositions.set(p.id,p.position||1);
   for(const id of [...visualPositions.keys()])if(!state.players.some(p=>p.id===id))visualPositions.delete(id);
   if(old?.snakes?.status!=='playing'&&state.snakes.status==='playing'&&!state.snakes.lastMove){state.players.forEach(p=>visualPositions.set(p.id,p.position||1));}
@@ -131,15 +182,31 @@ function drawLadder(a,b,i){
   pathsLayer.appendChild(g);
 }
 function drawSnake(a,b,i){
-  const bend=i%2===0?1:-1,curve=curvedPath(a,b,bend),g=svgEl('g',{class:'snake-group',filter:'url(#softShadow)'}),width=2.7+(i%3)*.25;
-  g.appendChild(svgEl('path',{d:curve.d,class:'snake-body-under','stroke-width':width+1.1}));
+  const bend=i%2===0?1:-1,curve=curvedPath(a,b,bend),g=svgEl('g',{class:'snake-group snake-v9',filter:'url(#softShadow)'}),width=2.9+(i%3)*.18;
+  g.appendChild(svgEl('path',{d:curve.d,class:'snake-soft-shadow','stroke-width':width+.75}));
   const body=svgEl('path',{d:curve.d,class:'snake-body','stroke-width':width});body.style.stroke=`url(#snakeGrad${i})`;g.appendChild(body);
-  g.appendChild(svgEl('path',{d:curve.d,class:'snake-belly','stroke-width':.55}));g.appendChild(svgEl('path',{d:curve.d,class:'snake-scales','stroke-width':1.1}));
-  const hx=a.x-curve.c1.x,hy=a.y-curve.c1.y,angle=Math.atan2(hy,hx)*180/Math.PI,head=svgEl('g',{class:'snake-head-group',transform:`translate(${a.x} ${a.y}) rotate(${angle})`});
-  head.appendChild(svgEl('ellipse',{cx:0,cy:0,rx:2.9,ry:2.05,class:'snake-head',fill:`url(#snakeGrad${i})`}));head.appendChild(svgEl('ellipse',{cx:1.05,cy:0,rx:1.75,ry:1.35,class:'snake-snout',fill:`url(#snakeGrad${i})`}));
-  [[1.05,-.78],[1.05,.78]].forEach(([x,y])=>{head.appendChild(svgEl('circle',{cx:x,cy:y,r:.53,class:'snake-eye'}));head.appendChild(svgEl('circle',{cx:x+.24,cy:y,r:.22,class:'snake-pupil'}))});
-  head.appendChild(svgEl('circle',{cx:2.12,cy:-.42,r:.13,class:'snake-nostril'}));head.appendChild(svgEl('circle',{cx:2.12,cy:.42,r:.13,class:'snake-nostril'}));head.appendChild(svgEl('line',{x1:2.45,y1:0,x2:4.35,y2:0,class:'snake-tongue'}));head.appendChild(svgEl('line',{x1:3.9,y1:0,x2:4.8,y2:-.55,class:'snake-tongue'}));head.appendChild(svgEl('line',{x1:3.9,y1:0,x2:4.8,y2:.55,class:'snake-tongue'}));g.appendChild(head);
-  const tx=b.x-curve.c2.x,ty=b.y-curve.c2.y,tang=Math.atan2(ty,tx)*180/Math.PI,tail=svgEl('g',{transform:`translate(${b.x} ${b.y}) rotate(${tang})`});tail.appendChild(svgEl('path',{d:'M -1.6 -1 Q .2 0 3.4 0 Q .2 0 -1.6 1 Z',fill:`url(#snakeGrad${i})`,class:'snake-tail'}));g.appendChild(tail);pathsLayer.appendChild(g);
+  g.appendChild(svgEl('path',{d:curve.d,class:'snake-highlight','stroke-width':.46}));
+  g.appendChild(svgEl('path',{d:curve.d,class:'snake-scales','stroke-width':.22}));
+
+  // The head faces away from the body, matching a classic board-game snake.
+  const hx=a.x-curve.c1.x,hy=a.y-curve.c1.y,angle=Math.atan2(hy,hx)*180/Math.PI;
+  const head=svgEl('g',{class:'snake-head-group',transform:`translate(${a.x} ${a.y}) rotate(${angle})`});
+  head.appendChild(svgEl('ellipse',{cx:-.15,cy:0,rx:2.85,ry:1.95,class:'snake-head',fill:`url(#snakeGrad${i})`}));
+  head.appendChild(svgEl('ellipse',{cx:1.1,cy:0,rx:1.65,ry:1.28,class:'snake-snout',fill:`url(#snakeGrad${i})`}));
+  head.appendChild(svgEl('path',{d:'M -1.35 -1.0 Q .15 -1.75 1.65 -.92',class:'snake-head-shine'}));
+  [[.95,-.72],[.95,.72]].forEach(([x,y])=>{head.appendChild(svgEl('circle',{cx:x,cy:y,r:.5,class:'snake-eye'}));head.appendChild(svgEl('circle',{cx:x+.2,cy:y,r:.2,class:'snake-pupil'}))});
+  head.appendChild(svgEl('circle',{cx:2.05,cy:-.39,r:.12,class:'snake-nostril'}));
+  head.appendChild(svgEl('circle',{cx:2.05,cy:.39,r:.12,class:'snake-nostril'}));
+  head.appendChild(svgEl('path',{d:'M .65 1.12 Q 1.45 1.45 2.05 1.03',class:'snake-mouth'}));
+  head.appendChild(svgEl('line',{x1:2.35,y1:0,x2:4.15,y2:0,class:'snake-tongue'}));
+  head.appendChild(svgEl('line',{x1:3.72,y1:0,x2:4.55,y2:-.48,class:'snake-tongue'}));
+  head.appendChild(svgEl('line',{x1:3.72,y1:0,x2:4.55,y2:.48,class:'snake-tongue'}));
+  g.appendChild(head);
+
+  const tx=b.x-curve.c2.x,ty=b.y-curve.c2.y,tang=Math.atan2(ty,tx)*180/Math.PI;
+  const tail=svgEl('g',{transform:`translate(${b.x} ${b.y}) rotate(${tang})`});
+  tail.appendChild(svgEl('path',{d:'M -1.45 -.82 Q .35 0 3.25 0 Q .35 0 -1.45 .82 Z',fill:`url(#snakeGrad${i})`,class:'snake-tail'}));
+  g.appendChild(tail);pathsLayer.appendChild(g);
 }
 buildBoard();
 function ensurePieces(){
@@ -151,7 +218,7 @@ function layoutPieces(){
   for(const[pos,players]of groups){const c=cellCenter(Number(pos));players.forEach((p,i)=>{const el=piecesLayer.querySelector(`[data-player="${CSS.escape(p.id)}"]`),o=offsets[i]||[0,0];if(el){el.style.left=(c.x+o[0])+'%';el.style.top=(c.y+o[1])+'%';el.style.zIndex=String(20+i);el.classList.toggle('current',roomState.activeGame==='snakes'&&roomState.snakes?.status==='playing'&&p.id===currentId)}})}
 }
 function setDiceFace(n){n=Math.max(1,Math.min(6,Number(n)||1));for(let i=1;i<=6;i++)dice.classList.remove(`show-${i}`);dice.classList.add(`show-${n}`);dice.setAttribute('aria-label',`Dice showing ${n}`)}
-socket.on('snakes:dice-roll',({roll,duration=1100})=>{ensureAudio();sfx('dice');dice.classList.remove('landed');dice.classList.add('rolling');setTimeout(()=>{setDiceFace(roll);dice.classList.remove('rolling');dice.classList.add('landed');setTimeout(()=>dice.classList.remove('landed'),340)},duration)});
+socket.on('snakes:dice-roll',({roll,duration=1350})=>{ensureAudio();sfx('dice');dice.classList.remove('landed');dice.classList.add('rolling');setTimeout(()=>{setDiceFace(roll);dice.classList.remove('rolling');dice.classList.add('landed');setTimeout(()=>dice.classList.remove('landed'),340)},duration)});
 socket.on('snakes:turn-ready',({playerId})=>{if(playerId===socket.id){ensureAudio();sfx('turn')}});
 function renderSnakes(){
   if(!roomState)return;layoutPieces();const s=roomState.snakes,phase=s.phase||(s.rolling?'rolling':'idle');
@@ -191,7 +258,7 @@ function updateWordTimer(){
   const w=roomState.wordsearch,total=Math.max(1000,w.turnDurationMs||60000);
   if(roomState.activeGame!=='wordsearch'||roomState.players.length<2||w.status==='won'||!w.turnDeadline){wordTimerText.textContent='01:00';wordTimerBar.style.width='100%';wordTimerText.classList.remove('urgent');lastWordTickSecond=null;return;}
   const left=Math.max(0,w.turnDeadline-Date.now()),sec=Math.ceil(left/1000),pct=Math.max(0,Math.min(100,left/total*100));
-  wordTimerText.textContent=`00:${String(sec).padStart(2,'0')}`;wordTimerBar.style.width=pct+'%';wordTimerText.classList.toggle('urgent',sec<=10);wordTimerBar.classList.toggle('urgent',sec<=10);
+  const mins=Math.floor(sec/60),secs=sec%60;wordTimerText.textContent=`${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;wordTimerBar.style.width=pct+'%';wordTimerText.classList.toggle('urgent',sec<=10);wordTimerBar.classList.toggle('urgent',sec<=10);
   const current=roomState.players[w.turnIndex];
   if(current?.id===socket.id&&sec<=10&&sec>0&&sec!==lastWordTickSecond){lastWordTickSecond=sec;if(sfxOn){tone(sec<=5?820:610,.055,'square',sec<=5?.16:.09)}}
 }

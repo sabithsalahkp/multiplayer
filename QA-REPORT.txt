@@ -1,15 +1,26 @@
-PLAYVERSE V8 QA REPORT
+PLAYVERSE V9 QA REPORT
 
-Automated validation performed before packaging:
+Automated checks completed before packaging:
 
-- 40 browser render cycles across mobile, tablet and desktop widths.
-- 440 Snakes & Ladders DOM/layout checks passed.
-- Verified every cycle: 100 board cells, 8 snakes, 8 ladders, player pieces, square board geometry, visible SVG artwork, no horizontal page overflow, enabled correct-turn Roll Dice state.
-- Tic Tac Toe checked at 360, 390, 412, 768 and 1024 px widths; all 9 cells remain equal size with X/O values present.
-- Word Search checked at the same widths; 100 cells, visible countdown and no horizontal overflow.
-- 2,000 generated Word Search rounds validated: every round produced 8 unique valid words and every answer path matched the grid.
-- 16 Snakes & Ladders jump mappings validated: 8 ladders and 8 snakes, all destinations within 1–100.
-- JavaScript syntax checks passed for server.js, app.js and admin.js.
-- All JavaScript DOM ID references were checked against index.html: no missing IDs.
+PASS — 40 frontend render cycles across 360×800, 390×844, 412×915 and 1024×900.
+PASS — no JavaScript page errors in those 40 cycles.
+PASS — no horizontal page overflow in those 40 cycles.
+PASS — Snakes & Ladders renders 100 cells, 8 snakes and 8 ladders.
+PASS — public room browser renders a host name and join action without exposing a room code.
+PASS — mobile room browser has no horizontal scrolling.
+PASS — server room flow: create -> live public listing -> join by room id -> player count update -> leave update.
+PASS — opponent cannot roll during dice animation.
+PASS — opponent cannot roll during pawn/snake/ladder movement.
+PASS — opponent roll unlocks after the full previous move finishes.
+PASS — Word Search schedules a server-controlled 60-second turn timer.
+PASS — Word Search timer is visually above the playable grid.
+PASS — Word Search initial timer displays 01:00, not 00:60.
+PASS — Word Search grid renders 100 cells and has no mobile horizontal overflow.
+PASS — Tic Tac Toe renders 9 equal-size cells; X/O content does not resize the board.
+PASS — PWA manifest parses successfully.
+PASS — service-worker.js passes JavaScript syntax validation.
+PASS — 192px, 512px and Apple touch icons are present.
+PASS — app.js and server.js pass Node JavaScript syntax validation.
+PASS — all app.js element IDs exist in index.html and there are no duplicate HTML IDs.
 
-Version: 8.0.0
+Version: 9.0.0

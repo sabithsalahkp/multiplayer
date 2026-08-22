@@ -1,17 +1,28 @@
-PLAYVERSE V8 — ONLY MANUAL STEPS
+PLAYVERSE V9 — MANUAL STEPS
 
-1. Extract the ZIP.
-2. In your existing GitHub repo, replace the old project files with everything from this ZIP.
-3. Commit the changes.
-4. Wait for Render automatic deploy to finish.
-5. Open: https://YOUR-RENDER-LINK/health
-6. Confirm it shows version 8.0.0.
+1. Extract this ZIP.
+2. Replace the old files in your GitHub repository with everything from this folder.
+3. Commit/push.
+4. Render auto-deploys. Wait until it says Live.
+5. Open your Render URL.
 
-Nothing else is required.
+THAT IS ALL.
+
+No room code.
+No password.
 No database.
-No admin password.
-No environment variable.
+No environment variables.
 No persistent disk.
 
-WORD SEARCH
-Each player gets 60 seconds per turn. At 00:00 the server automatically passes the turn to the next player.
+HOW TO PLAY WITH A FRIEND
+- You open the site, enter your name, tap Create Room.
+- Your friend opens the same site, enters their name, sees your name under Available rooms, and taps it.
+- They join immediately.
+
+INSTALL
+- On supported Chrome, use the Install Game button when it appears.
+- You can also use Chrome's Install app / Add to Home screen option.
+
+CHECK DEPLOYMENT
+Open: /health
+Expected version: 9.0.0

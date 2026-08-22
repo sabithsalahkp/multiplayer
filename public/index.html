@@ -4,33 +4,44 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#090d18" />
-  <meta name="description" content="Premium multiplayer Snakes & Ladders, Tic Tac Toe and Word Search with live voice and meme reactions." />
+  <meta name="description" content="Installable multiplayer Snakes & Ladders, Tic Tac Toe and Word Search with live voice and reactions." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PlayVerse" />
   <title>PlayVerse</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><div class="grain"></div>
   <main class="app-shell">
-    <section id="landing" class="landing">
-      <div class="hero-copy">
+    <section id="landing" class="landing lobby-landing">
+      <div class="hero-copy lobby-hero">
         <div class="logo">P</div>
-        <span class="eyebrow">PRIVATE MULTIPLAYER GAME NIGHT</span>
+        <span class="eyebrow">LIVE MULTIPLAYER</span>
         <h1>Play<span>Verse</span></h1>
-        <p>Three polished games. One room. Live voice. Premium classic gameplay.</p>
+        <p>Create a room or tap your friend's room below. No codes, passwords or accounts.</p>
       </div>
-      <div class="landing-grid">
-        <div class="join-card glass">
-          <div class="connection"><i></i><b id="connectionText">Connecting…</b></div>
-          <label><span>Your name</span><input id="nameInput" maxlength="20" autocomplete="nickname" placeholder="Enter your name" /></label>
-          <button id="createBtn" class="primary" disabled>Create Room</button>
-          <div class="or"><i></i><small>OR JOIN</small><i></i></div>
-          <div class="join-row"><input id="roomInput" maxlength="6" autocomplete="off" placeholder="ROOM CODE" /><button id="joinBtn" class="secondary" disabled>Join</button></div>
-          <p id="landingError" class="error" aria-live="polite"></p>
+
+      <div class="lobby-card glass">
+        <div class="connection"><i></i><b id="connectionText">Connecting…</b></div>
+        <label class="name-field"><span>Your name</span><input id="nameInput" maxlength="20" autocomplete="nickname" placeholder="Enter your name" /></label>
+        <button id="createBtn" class="primary" disabled type="button">Create Room</button>
+        <button id="installLandingBtn" class="install-btn hidden" type="button">Install Game</button>
+        <p id="landingError" class="error" aria-live="polite"></p>
+
+        <div class="rooms-head">
+          <div><b>Available rooms</b><small>Tap a player name to join</small></div>
+          <button id="roomsRefreshBtn" class="refresh-btn" type="button" aria-label="Refresh available rooms">↻</button>
         </div>
-        <div class="preview-grid">
-          <article class="preview-card"><div class="preview-icon snake-icon">🐍</div><b>Snakes & Ladders</b><small>Animated race</small></article>
-          <article class="preview-card"><div class="preview-icon xo-icon">XO</div><b>Tic Tac Toe</b><small>Fixed 3×3 duel</small></article>
-          <article class="preview-card"><div class="preview-icon word-icon">WORD</div><b>Word Search</b><small>Turn-by-turn hunt</small></article>
+        <div id="roomsList" class="rooms-list" aria-live="polite"></div>
+        <div id="roomsEmpty" class="rooms-empty">
+          <span>◎</span>
+          <b>No rooms yet</b>
+          <small>Create one and your friend will see it here instantly.</small>
         </div>
       </div>
     </section>
@@ -38,8 +49,8 @@
     <section id="gameShell" class="game-shell hidden">
       <header class="topbar glass">
         <div class="brand-mini"><div class="logo small">P</div><div><b>PlayVerse</b><small id="activeGameLabel">Snakes & Ladders</small></div></div>
-        <div class="room-chip"><small>ROOM</small><b id="roomCode">------</b><button id="copyCodeBtn" type="button" title="Copy room code">⧉</button></div>
         <div class="top-actions">
+          <button id="installTopBtn" class="icon-btn hidden" type="button"><span>↓</span><b>INSTALL</b></button>
           <button id="micBtn" class="icon-btn" type="button"><span>🎙</span><b>MIC OFF</b></button>
           <button id="speakerBtn" class="icon-btn on" type="button"><span>🔊</span><b>SPEAKER ON</b></button>
           <button id="soundBtn" class="icon-btn on" type="button"><span>♪</span><b>SFX ON</b></button>
@@ -53,7 +64,7 @@
           <nav id="gameNav" class="game-nav">
             <button data-game="snakes" class="active" type="button"><span>🐍</span><div><b>Snakes & Ladders</b><small>2–6 players</small></div></button>
             <button data-game="tictactoe" type="button"><span>✕</span><div><b>Tic Tac Toe</b><small>2 players</small></div></button>
-            <button data-game="wordsearch" type="button"><span>⌕</span><div><b>Word Search</b><small>Turn based</small></div></button>
+            <button data-game="wordsearch" type="button"><span>⌕</span><div><b>Word Search</b><small>60-second turns</small></div></button>
           </nav>
           <div class="side-title players-title"><span>PLAYERS</span><small id="playerCount">0/6</small></div>
           <div id="playersList" class="players-list"></div>
@@ -64,7 +75,7 @@
             <section id="snakesView" class="game-view">
               <div class="stage-head"><div><span class="eyebrow">CLASSIC RACE</span><h2>Snakes & Ladders</h2></div><div id="snakesStatus" class="status-pill">LOBBY</div></div>
               <div class="snakes-layout">
-                <div class="board-frame"><div id="snakesBoard" class="snakes-board"><div id="boardCells" class="board-cells"></div><svg id="pathsLayer" class="paths-layer" viewBox="0 0 1000 1000" aria-hidden="true"></svg><div id="piecesLayer" class="pieces-layer"></div></div></div>
+                <div class="board-frame"><div id="snakesBoard" class="snakes-board"><div id="boardCells" class="board-cells"></div><svg id="pathsLayer" class="paths-layer" viewBox="0 0 100 100" aria-hidden="true"></svg><div id="piecesLayer" class="pieces-layer"></div></div></div>
                 <div class="dice-panel">
                   <div class="dice-stage" aria-hidden="true"><span class="dice-shadow"></span>
                     <div id="dice" class="dice-cube show-1" aria-label="Dice showing one">
@@ -81,7 +92,7 @@
                   <button id="rollBtn" class="roll-btn" disabled type="button"><span>ROLL DICE</span><small>Tap when it is your turn</small></button>
                   <button id="startSnakesBtn" class="small-action hidden" type="button">START GAME</button>
                   <div class="turn-card"><span>CURRENT TURN</span><b id="turnText">Waiting for players</b></div>
-                  <small id="lastMoveText">Create or join a room to play.</small>
+                  <small id="lastMoveText">Waiting for a friend to join.</small>
                 </div>
               </div>
             </section>
@@ -99,14 +110,20 @@
             </section>
 
             <section id="wordView" class="game-view hidden">
-              <div class="stage-head"><div><span class="eyebrow">TURN-BASED HUNT</span><h2>Word Search</h2></div><div id="wordStatus" class="status-pill">LIVE</div></div>
-              <div class="word-layout">
-                <div class="word-board-wrap">
-                  <div id="wordBoard" class="word-board" aria-label="Word search grid"></div>
-                  <p class="tap-help">Tap the <b>first letter</b>, then tap the <b>last letter</b>. No dragging needed.</p>
+              <span id="wordStatus" class="visually-hidden">LIVE</span>
+              <div class="word-layout word-layout-v9">
+                <div class="word-main">
+                  <div class="word-turn-card word-turn-top">
+                    <div class="word-turn-line"><b id="wordTurnText">Waiting for 2 players</b><strong id="wordTimerText" class="word-timer-text">01:00</strong></div>
+                    <div class="word-timer-track"><i id="wordTimerBar"></i></div>
+                    <span id="wordSelectionText">Select a word when it is your turn.</span>
+                  </div>
+                  <div class="word-board-wrap">
+                    <div id="wordBoard" class="word-board" aria-label="Word search grid"></div>
+                    <p class="tap-help">Tap the <b>first</b> letter, then the <b>last</b> letter. No dragging.</p>
+                  </div>
                 </div>
                 <div class="word-side">
-                  <div class="word-turn-card"><small>CURRENT TURN</small><div class="word-turn-line"><b id="wordTurnText">Waiting for 2 players</b><strong id="wordTimerText" class="word-timer-text">01:00</strong></div><div class="word-timer-track"><i id="wordTimerBar"></i></div><span id="wordSelectionText">Select a word when it is your turn.</span></div>
                   <div><small class="section-label">WORDS</small><div id="wordList" class="word-list"></div></div>
                   <div><small class="section-label">SCORE</small><div id="wordScores" class="word-scores"></div></div>
                   <button id="newWordsBtn" class="small-action hidden" type="button">NEW WORD BOARD</button>
