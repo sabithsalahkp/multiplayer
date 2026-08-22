@@ -1,0 +1,10 @@
+{
+  "name": "playverse-multiplayer-games",
+  "version": "4.0.0",
+  "private": true,
+  "description": "Premium browser multiplayer game hub: Snakes & Ladders, Tic Tac Toe, Arrow Puzzle and Carrom Pool with voice chat and meme stickers",
+  "main": "server.js",
+  "scripts": {"start":"node server.js"},
+  "engines":{"node":">=18"},
+  "dependencies":{"express":"^5.1.0","socket.io":"^4.8.1"}
+}

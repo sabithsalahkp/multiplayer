@@ -1,0 +1,31 @@
+MANUAL STEPS — SHORT VERSION
+
+FIRST PUBLISH
+1. Extract ZIP.
+2. Upload ALL files/folders to GitHub repo root.
+3. Render -> New -> Blueprint.
+4. Select repo -> Deploy.
+5. Wait until Live.
+
+NO NEED:
+- database
+- admin password
+- environment variables
+- persistent disk
+
+URLS
+/               landing / room join
+/snakes         Snakes & Ladders
+/tic-tac-toe    Tic Tac Toe
+/arrow-puzzle   Arrow Puzzle
+/carrom         Carrom Pool
+/admin          live admin
+/health         server health check
+
+CHANGE MEMES PERMANENTLY
+Open data/stickers.json in GitHub and replace a name/url, or add another entry with unique id and order.
+
+CHANGE DEFAULTS PERMANENTLY
+Open data/settings.json.
+
+After GitHub commit, Render auto-redeploys.

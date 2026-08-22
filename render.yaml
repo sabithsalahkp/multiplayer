@@ -1,11 +1,9 @@
 services:
   - type: web
-    name: snakes-ladders-live
+    name: playverse-multiplayer
     runtime: node
     plan: free
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
-    envVars:
-      - key: NODE_VERSION
-        value: 22
+    autoDeploy: true
