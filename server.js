@@ -31,9 +31,90 @@ const defaultSettings = {
 };
 
 const defaultStickers = [
-  { id: 'laugh', name: 'Laugh', url: '/stickers/laugh.png', enabled: true, order: 1 },
-  { id: 'confident', name: 'Confident', url: '/stickers/confident.png', enabled: true, order: 2 },
-  { id: 'shy', name: 'Shy', url: '/stickers/shy.png', enabled: true, order: 3 }
+  {
+    "id": "laugh",
+    "name": "LOL",
+    "emoji": "😂",
+    "enabled": true,
+    "order": 1
+  },
+  {
+    "id": "rofl",
+    "name": "ROFL",
+    "emoji": "🤣",
+    "enabled": true,
+    "order": 2
+  },
+  {
+    "id": "cry",
+    "name": "Crying",
+    "emoji": "😭",
+    "enabled": true,
+    "order": 3
+  },
+  {
+    "id": "love",
+    "name": "Love",
+    "emoji": "❤️",
+    "enabled": true,
+    "order": 4
+  },
+  {
+    "id": "fire",
+    "name": "Fire",
+    "emoji": "🔥",
+    "enabled": true,
+    "order": 5
+  },
+  {
+    "id": "cool",
+    "name": "Cool",
+    "emoji": "😎",
+    "enabled": true,
+    "order": 6
+  },
+  {
+    "id": "dead",
+    "name": "I'm Dead",
+    "emoji": "💀",
+    "enabled": true,
+    "order": 7
+  },
+  {
+    "id": "clown",
+    "name": "Clown",
+    "emoji": "🤡",
+    "enabled": true,
+    "order": 8
+  },
+  {
+    "id": "angry",
+    "name": "Angry",
+    "emoji": "😡",
+    "enabled": true,
+    "order": 9
+  },
+  {
+    "id": "clap",
+    "name": "Clap",
+    "emoji": "👏",
+    "enabled": true,
+    "order": 10
+  },
+  {
+    "id": "party",
+    "name": "Party",
+    "emoji": "🥳",
+    "enabled": true,
+    "order": 11
+  },
+  {
+    "id": "wow",
+    "name": "Wow",
+    "emoji": "😱",
+    "enabled": true,
+    "order": 12
+  }
 ];
 
 function readJson(file, fallback) {
@@ -70,7 +151,7 @@ function publicStickers() {
   return stickers
     .filter(s => s.enabled)
     .sort((a, b) => (a.order || 0) - (b.order || 0))
-    .map(({ id, name, url }) => ({ id, name, url }));
+    .map(({ id, name, url, emoji }) => ({ id, name, url, emoji }));
 }
 function publicSettings() {
   return {
@@ -220,6 +301,7 @@ io.on('connection', socket => {
         winnerId: null,
         lastRoll: null,
         lastMove: null,
+        rollBusy: false,
         createdAt: Date.now(),
         players: [player]
       };
@@ -269,18 +351,32 @@ io.on('connection', socket => {
     room.turnIndex = 0;
     room.lastRoll = null;
     room.lastMove = null;
+    room.rollBusy = false;
     room.players.forEach(p => p.position = 1);
+    io.to(room.code).emit('game:fx', { kind: 'start' });
     emitRoom(room);
     ack({ ok: true });
   });
 
-  socket.on('game:roll', (_, ack = () => {}) => {
+  socket.on('game:roll', async (_, ack = () => {}) => {
     const room = getRoomForSocket(socket);
     if (!room || room.status !== 'playing') return ack({ ok: false, error: 'Game is not active.' });
     const player = room.players[room.turnIndex];
     if (!player || player.id !== socket.id) return ack({ ok: false, error: 'Wait for your turn.' });
+    if (room.rollBusy) return ack({ ok: false, error: 'Dice is already rolling.' });
 
+    room.rollBusy = true;
     const roll = crypto.randomInt(1, 7);
+    const playerId = player.id;
+    io.to(room.code).emit('game:roll:start', { playerId, at: Date.now() });
+
+    // Give every client time to see/hear the physical dice roll before the move begins.
+    await new Promise(resolve => setTimeout(resolve, 620));
+    if (!rooms.has(room.code) || room.status !== 'playing' || !room.players.includes(player)) {
+      room.rollBusy = false;
+      return ack({ ok: false, error: 'Roll cancelled.' });
+    }
+
     const from = player.position;
     let landed = from + roll;
     if (landed > 100 && settings.exactRollToWin) landed = from;
@@ -304,6 +400,7 @@ io.on('connection', socket => {
       room.turnIndex = (room.turnIndex + 1) % room.players.length;
     }
 
+    room.rollBusy = false;
     emitRoom(room);
     ack({ ok: true, roll });
   });
@@ -317,7 +414,9 @@ io.on('connection', socket => {
     room.winnerId = null;
     room.lastRoll = null;
     room.lastMove = null;
+    room.rollBusy = false;
     room.players.forEach(p => p.position = 1);
+    io.to(room.code).emit('game:fx', { kind: 'start' });
     emitRoom(room);
     ack({ ok: true });
   });

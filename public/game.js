@@ -30,6 +30,7 @@ const stickerTray = $('stickerTray');
 const stickerTarget = $('stickerTarget');
 const stickerPopup = $('stickerPopup');
 const stickerPopupImage = $('stickerPopupImage');
+const stickerPopupEmoji = $('stickerPopupEmoji');
 const stickerSender = $('stickerSender');
 const stickerTargetLabel = $('stickerTargetLabel');
 const connectionDot = $('connectionDot');
@@ -63,6 +64,8 @@ let lastAnimatedRollAt = null;
 let moveAnimationRunning = false;
 let pendingRoomState = null;
 let audioCtx = null;
+let sfxBus = null;
+let audioUnlocked = false;
 let diceSpinTimer = null;
 
 function showNotice(text) {
@@ -168,30 +171,41 @@ function makePathsSvg() {
   svg.classList.add('path-svg');
   const defs = makeSvgEl('defs');
   const snakePalette = [
-    ['#244d34','#6ea64d','#d4c260'],['#493047','#9d5574','#d9ad72'],['#314d65','#5d91a3','#d0c47b'],['#5c3c26','#b36d3f','#d6be68'],['#334628','#6e8d45','#c5a64c'],['#46325c','#88579b','#d3af68'],['#27443e','#4f8b73','#d4bf66'],['#5b3131','#a9554c','#d6b15e']
+    ['#12391f','#4f9c3d','#d4c35b'],['#3b1837','#a4406d','#e3bd69'],['#143d54','#3e91a9','#d7c963'],['#5b2418','#c45a2f','#e2c664'],['#1c3b1e','#69a738','#d0b74d'],['#331c50','#8751aa','#d8ba61'],['#123a30','#3f9474','#dcc45f'],['#521b22','#b83e46','#e0b84f']
   ];
   snakePairs.forEach(([from,to], i) => {
     const grad = makeSvgEl('linearGradient', { id: `snakeGrad${i}`, x1: '0%', y1: '0%', x2: '100%', y2: '100%' });
     const pal = snakePalette[i % snakePalette.length];
-    grad.append(makeSvgEl('stop',{offset:'0%','stop-color':pal[0]}),makeSvgEl('stop',{offset:'48%','stop-color':pal[1]}),makeSvgEl('stop',{offset:'100%','stop-color':pal[2]}));
+    grad.append(
+      makeSvgEl('stop',{offset:'0%','stop-color':pal[0]}),
+      makeSvgEl('stop',{offset:'42%','stop-color':pal[1]}),
+      makeSvgEl('stop',{offset:'72%','stop-color':pal[2]}),
+      makeSvgEl('stop',{offset:'100%','stop-color':pal[0]})
+    );
     defs.appendChild(grad);
   });
+  const wood = makeSvgEl('linearGradient', { id:'woodRail', x1:'0%',y1:'0%',x2:'100%',y2:'100%' });
+  wood.append(makeSvgEl('stop',{offset:'0%','stop-color':'#f0c17c'}),makeSvgEl('stop',{offset:'35%','stop-color':'#9c5b25'}),makeSvgEl('stop',{offset:'70%','stop-color':'#d08a3f'}),makeSvgEl('stop',{offset:'100%','stop-color':'#6f3d19'}));
+  defs.appendChild(wood);
   svg.appendChild(defs);
 
-  ladderPairs.forEach(([from,to]) => {
+  ladderPairs.forEach(([from,to], ladderIndex) => {
     const a = cellCenter(from), b = cellCenter(to);
     const dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy) || 1;
-    const ox = -dy/len*1.35, oy = dx/len*1.35;
-    const group = makeSvgEl('g');
+    const ox = -dy/len*1.42, oy = dx/len*1.42;
+    const group = makeSvgEl('g',{class:'ladder-group',style:`animation-delay:${ladderIndex*.17}s`});
     [[ox,oy],[-ox,-oy]].forEach(([x,y]) => {
-      group.appendChild(makeSvgEl('line',{x1:a.x+x+.25,y1:a.y+y+.35,x2:b.x+x+.25,y2:b.y+y+.35,class:'ladder-shadow'}));
-      group.appendChild(makeSvgEl('line',{x1:a.x+x,y1:a.y+y,x2:b.x+x,y2:b.y+y,class:'ladder-rail'}));
-      group.appendChild(makeSvgEl('line',{x1:a.x+x-.18,y1:a.y+y-.15,x2:b.x+x-.18,y2:b.y+y-.15,class:'ladder-highlight'}));
+      group.appendChild(makeSvgEl('line',{x1:a.x+x+.32,y1:a.y+y+.42,x2:b.x+x+.32,y2:b.y+y+.42,class:'ladder-shadow'}));
+      group.appendChild(makeSvgEl('line',{x1:a.x+x,y1:a.y+y,x2:b.x+x,y2:b.y+y,class:'ladder-rail',stroke:'url(#woodRail)'}));
+      group.appendChild(makeSvgEl('line',{x1:a.x+x-.24,y1:a.y+y-.2,x2:b.x+x-.24,y2:b.y+y-.2,class:'ladder-highlight'}));
     });
-    for(let t=.08;t<.96;t+=.115){
+    let rung = 0;
+    for(let t=.07;t<.97;t+=.105){
       const cx=a.x+dx*t, cy=a.y+dy*t;
-      group.appendChild(makeSvgEl('line',{x1:cx+ox,y1:cy+oy,x2:cx-ox,y2:cy-oy,class:'ladder-rung'}));
-      group.appendChild(makeSvgEl('line',{x1:cx+ox,y1:cy+oy-.16,x2:cx-ox,y2:cy-oy-.16,class:'ladder-rung-hi'}));
+      const r=makeSvgEl('g',{class:'ladder-rung-group',style:`animation-delay:${(rung++)*.07}s`});
+      r.appendChild(makeSvgEl('line',{x1:cx+ox,y1:cy+oy,x2:cx-ox,y2:cy-oy,class:'ladder-rung'}));
+      r.appendChild(makeSvgEl('line',{x1:cx+ox,y1:cy+oy-.18,x2:cx-ox,y2:cy-oy-.18,class:'ladder-rung-hi'}));
+      group.appendChild(r);
     }
     svg.appendChild(group);
   });
@@ -200,25 +214,36 @@ function makePathsSvg() {
     const a = cellCenter(from), b = cellCenter(to);
     const bend = i % 2 === 0 ? 1 : -1;
     const curve = curvedPath(a,b,bend);
-    const group = makeSvgEl('g', { class: 'snake-group' });
-    const width = 2.4 + (i % 3) * .24;
-    group.appendChild(makeSvgEl('path',{d:curve.d,class:'snake-shadow','stroke-width':width+1.0}));
+    const group = makeSvgEl('g', { class: 'snake-group', style:`animation-delay:${i*.23}s` });
+    const width = 2.65 + (i % 3) * .27;
+    group.appendChild(makeSvgEl('path',{d:curve.d,class:'snake-shadow','stroke-width':width+1.15}));
     group.appendChild(makeSvgEl('path',{d:curve.d,class:'snake-body','stroke-width':width,stroke:`url(#snakeGrad${i})`}));
-    group.appendChild(makeSvgEl('path',{d:curve.d,class:'snake-belly','stroke-width':.58}));
-    group.appendChild(makeSvgEl('path',{d:curve.d,class:'snake-scales','stroke-width':1.15}));
+    group.appendChild(makeSvgEl('path',{d:curve.d,class:'snake-highlight','stroke-width':.58}));
+    group.appendChild(makeSvgEl('path',{d:curve.d,class:'snake-scales','stroke-width':1.42}));
 
-    const dx = curve.c1.x - a.x, dy = curve.c1.y - a.y;
-    const ang = Math.atan2(dy,dx) * 180 / Math.PI;
-    const head = makeSvgEl('g',{transform:`translate(${a.x} ${a.y}) rotate(${ang})`});
-    head.appendChild(makeSvgEl('ellipse',{cx:0,cy:0,rx:2.55,ry:1.85,fill:`url(#snakeGrad${i})`,class:'snake-head'}));
-    head.appendChild(makeSvgEl('circle',{cx:1.05,cy:-.72,r:.42,class:'snake-eye'}));
-    head.appendChild(makeSvgEl('circle',{cx:1.05,cy:.72,r:.42,class:'snake-eye'}));
-    head.appendChild(makeSvgEl('circle',{cx:1.18,cy:-.72,r:.19,class:'snake-pupil'}));
-    head.appendChild(makeSvgEl('circle',{cx:1.18,cy:.72,r:.19,class:'snake-pupil'}));
-    head.appendChild(makeSvgEl('line',{x1:2.15,y1:0,x2:4.15,y2:0,class:'snake-tongue'}));
-    head.appendChild(makeSvgEl('line',{x1:3.7,y1:0,x2:4.45,y2:-.52,class:'snake-tongue'}));
-    head.appendChild(makeSvgEl('line',{x1:3.7,y1:0,x2:4.45,y2:.52,class:'snake-tongue'}));
+    // Head points away from the body so it never looks backward down its own snake.
+    const hx = a.x - curve.c1.x, hy = a.y - curve.c1.y;
+    const hang = Math.atan2(hy,hx) * 180 / Math.PI;
+    const head = makeSvgEl('g',{class:'snake-head-group',transform:`translate(${a.x} ${a.y}) rotate(${hang})`});
+    head.appendChild(makeSvgEl('ellipse',{cx:.05,cy:0,rx:2.9,ry:2.05,fill:`url(#snakeGrad${i})`,class:'snake-head'}));
+    head.appendChild(makeSvgEl('path',{d:'M -1.7 -1.05 Q .1 -2.15 2.15 -.95',class:'snake-brow'}));
+    head.appendChild(makeSvgEl('ellipse',{cx:1.02,cy:-.78,rx:.53,ry:.6,class:'snake-eye'}));
+    head.appendChild(makeSvgEl('ellipse',{cx:1.02,cy:.78,rx:.53,ry:.6,class:'snake-eye'}));
+    head.appendChild(makeSvgEl('circle',{cx:1.26,cy:-.78,r:.23,class:'snake-pupil'}));
+    head.appendChild(makeSvgEl('circle',{cx:1.26,cy:.78,r:.23,class:'snake-pupil'}));
+    head.appendChild(makeSvgEl('circle',{cx:2.15,cy:-.43,r:.13,class:'snake-nostril'}));
+    head.appendChild(makeSvgEl('circle',{cx:2.15,cy:.43,r:.13,class:'snake-nostril'}));
+    head.appendChild(makeSvgEl('path',{d:'M .55 1.35 Q 1.55 1.75 2.25 1.12',class:'snake-mouth'}));
+    head.appendChild(makeSvgEl('line',{x1:2.55,y1:0,x2:4.55,y2:0,class:'snake-tongue'}));
+    head.appendChild(makeSvgEl('line',{x1:4.05,y1:0,x2:4.95,y2:-.58,class:'snake-tongue'}));
+    head.appendChild(makeSvgEl('line',{x1:4.05,y1:0,x2:4.95,y2:.58,class:'snake-tongue'}));
     group.appendChild(head);
+
+    const tx = b.x-curve.c2.x, ty=b.y-curve.c2.y;
+    const tang = Math.atan2(ty,tx)*180/Math.PI;
+    const tail=makeSvgEl('g',{transform:`translate(${b.x} ${b.y}) rotate(${tang})`});
+    tail.appendChild(makeSvgEl('path',{d:'M -1.8 -1.15 Q .1 0 3.6 0 Q .1 0 -1.8 1.15 Z',fill:`url(#snakeGrad${i})`,class:'snake-tail'}));
+    group.appendChild(tail);
     svg.appendChild(group);
   });
   return svg;
@@ -280,10 +305,20 @@ function renderStickerTray() {
     btn.className = 'sticker-btn';
     btn.title = sticker.name;
     btn.setAttribute('aria-label', `Send ${sticker.name} sticker`);
-    const img = document.createElement('img');
-    img.src = sticker.url;
-    img.alt = sticker.name;
-    btn.appendChild(img);
+    if (sticker.emoji) {
+      const emoji = document.createElement('span');
+      emoji.className = 'sticker-emoji';
+      emoji.textContent = sticker.emoji;
+      btn.appendChild(emoji);
+    } else if (sticker.url) {
+      const img = document.createElement('img');
+      img.src = sticker.url;
+      img.alt = sticker.name;
+      btn.appendChild(img);
+    }
+    const label = document.createElement('small');
+    label.textContent = sticker.name;
+    btn.appendChild(label);
     btn.addEventListener('click', () => sendSticker(sticker.id));
     stickerTray.appendChild(btn);
   });
@@ -339,15 +374,22 @@ function renderRoomMeta() {
     if (mine && roomState.lastRoll?.playerId !== socket.id) playSfx('turn');
   } else {
     const winner=roomState.players.find(p=>p.id===roomState.winnerId);
-    statusLabel.textContent='Game finished';
-    turnText.textContent=`${winner?.name || 'Player'} wins the game`;
-    diceHint.textContent='Game complete'; diceBtn.disabled=true;
-    moveEvent.textContent = 'Final square reached';
-    if (roomState.winnerId && winnerShownFor !== roomState.winnerId) {
-      winnerShownFor=roomState.winnerId;
-      winnerText.textContent = `${winner?.name || 'Player'} wins!`;
-      winnerModal.classList.remove('hidden');
-      playSfx('win');
+    if (moveAnimationRunning) {
+      statusLabel.textContent='Final move';
+      turnText.textContent=`${winner?.name || 'Player'} is reaching the finish…`;
+      diceHint.textContent='Finishing animation'; diceBtn.disabled=true;
+      moveEvent.textContent = 'Watch the final move';
+    } else {
+      statusLabel.textContent='Game finished';
+      turnText.textContent=`${winner?.name || 'Player'} wins the game`;
+      diceHint.textContent='Game complete'; diceBtn.disabled=true;
+      moveEvent.textContent = 'Final square reached';
+      if (roomState.winnerId && winnerShownFor !== roomState.winnerId) {
+        winnerShownFor=roomState.winnerId;
+        winnerText.textContent = `${winner?.name || 'Player'} wins!`;
+        playSfx('win');
+        setTimeout(() => winnerModal.classList.remove('hidden'), 120);
+      }
     }
   }
 
@@ -379,7 +421,7 @@ function syncPieceElements(state) {
       el = document.createElement('div');
       el.className = 'board-piece';
       el.dataset.playerId = p.id;
-      el.innerHTML = '<span class="pawn-head"></span><span class="pawn-body"></span><span class="pawn-base"></span><b class="pawn-initial"></b><span class="piece-name"></span>';
+      el.innerHTML = '<span class="character-shadow"></span><span class="pawn-foot foot-left"></span><span class="pawn-foot foot-right"></span><span class="pawn-arm arm-left"></span><span class="pawn-arm arm-right"></span><span class="pawn-body"></span><span class="pawn-head"><i class="face-eye eye-left"></i><i class="face-eye eye-right"></i><i class="face-smile"></i></span><b class="pawn-initial"></b><span class="piece-name"></span>';
       pieceLayer.appendChild(el);
     }
     el.style.setProperty('--piece', playerPieceColor(p));
@@ -392,11 +434,11 @@ function syncPieceElements(state) {
 
 function offsetsForCount(count) {
   if (count <= 1) return [[0,0]];
-  if (count === 2) return [[-1.65,-.5],[1.65,.5]];
-  if (count === 3) return [[0,-1.7],[-1.75,1],[1.75,1]];
-  if (count === 4) return [[-1.55,-1.35],[1.55,-1.35],[-1.55,1.35],[1.55,1.35]];
-  if (count === 5) return [[0,-1.9],[-1.85,-.3],[1.85,-.3],[-1.25,1.65],[1.25,1.65]];
-  return [[-1.8,-1.6],[0,-1.8],[1.8,-1.6],[-1.8,1.45],[0,1.65],[1.8,1.45]];
+  if (count === 2) return [[-2.25,.15],[2.25,.15]];
+  if (count === 3) return [[0,-1.65],[-2.5,1.25],[2.5,1.25]];
+  if (count === 4) return [[-2.25,-1.25],[2.25,-1.25],[-2.25,1.6],[2.25,1.6]];
+  if (count === 5) return [[0,-1.9],[-2.7,-.2],[2.7,-.2],[-1.7,1.8],[1.7,1.8]];
+  return [[-2.65,-1.6],[0,-1.95],[2.65,-1.6],[-2.65,1.55],[0,1.9],[2.65,1.55]];
 }
 
 function layoutPieces(immediate = false) {
@@ -443,24 +485,37 @@ async function animateJump(playerId, from, to, type) {
     const pairIndex = snakePairs.findIndex(([a,b]) => a === from && b === to);
     const curve = curvedPath(start,end,pairIndex % 2 === 0 ? 1 : -1);
     el.style.transition = 'none';
-    for (let i=1;i<=28;i++) {
-      const p = bezierPoint(i/28,start,curve.c1,curve.c2,end);
+    for (let i=1;i<=34;i++) {
+      const p = bezierPoint(i/34,start,curve.c1,curve.c2,end);
       el.style.left = `${p.x}%`; el.style.top = `${p.y}%`;
-      await wait(28);
+      if (i % 7 === 0) playSfx('slideTick');
+      await wait(30);
     }
   } else {
     playSfx('ladder');
-    el.style.transition = 'left .9s cubic-bezier(.22,.74,.26,1), top .9s cubic-bezier(.22,.74,.26,1)';
+    el.style.transition = 'none';
+    const steps = 12;
+    for (let i=1;i<=steps;i++) {
+      const t=i/steps;
+      const wobble=(i%2?1:-1)*.42;
+      el.style.left = `${start.x + (end.x-start.x)*t + wobble}%`;
+      el.style.top = `${start.y + (end.y-start.y)*t}%`;
+      el.classList.add('step-hop');
+      playSfx('ladderStep', i);
+      await wait(92);
+      el.classList.remove('step-hop');
+    }
     el.style.left = `${end.x + destinationOffset[0]}%`;
     el.style.top = `${end.y + destinationOffset[1]}%`;
-    await wait(930);
   }
   visualPositions.set(playerId,to);
-  el.classList.remove('jump-snake','jump-ladder');
+  el.classList.remove('jump-snake','jump-ladder','step-hop');
   el.style.transition = '';
   layoutPieces(false);
   el.classList.add('arrive');
-  setTimeout(() => el.classList.remove('arrive'), 450);
+  playSfx('land');
+  await wait(430);
+  el.classList.remove('arrive');
 }
 
 async function animateMove(state) {
@@ -474,32 +529,45 @@ async function animateMove(state) {
   const el = pieceLayer?.querySelector(`[data-player-id="${CSS.escape(move.playerId)}"]`);
   if (!player || !el) { moveAnimationRunning = false; return; }
 
+  playSfx('diceLand');
   visualPositions.set(move.playerId, move.from);
   layoutPieces(true);
-  await wait(120);
+  await wait(180);
 
   if (move.rolledTo > move.from) {
     for (let square = move.from + 1; square <= move.rolledTo; square++) {
+      el.classList.add('step-hop');
       visualPositions.set(move.playerId, square);
       layoutPieces(false);
-      playSfx('step');
-      await wait(155);
+      playSfx('jump');
+      await wait(170);
+      el.classList.remove('step-hop');
+      await wait(25);
     }
   } else if (move.rolledTo === move.from) {
     playSfx('blocked');
-    el.classList.add('arrive');
-    await wait(420);
-    el.classList.remove('arrive');
+    el.classList.add('blocked-bump');
+    await wait(560);
+    el.classList.remove('blocked-bump');
   }
 
   if (move.jump === 'snake' || move.jump === 'ladder') {
-    await wait(120);
+    await wait(180);
     await animateJump(move.playerId, move.rolledTo, move.to, move.jump);
   } else {
     visualPositions.set(move.playerId, move.to);
     layoutPieces(false);
     el.classList.add('arrive');
-    setTimeout(() => el.classList.remove('arrive'), 450);
+    playSfx('land');
+    await wait(460);
+    el.classList.remove('arrive');
+  }
+
+  if (state.status === 'finished' && state.winnerId === move.playerId) {
+    el.classList.add('victory-jump');
+    playSfx('victoryBuild');
+    await wait(1050);
+    el.classList.remove('victory-jump');
   }
 
   moveAnimationRunning = false;
@@ -578,16 +646,34 @@ $('leaveBtn').addEventListener('click',()=>{
   pieceLayer?.querySelectorAll('.board-piece').forEach(el=>el.remove());
   gameView.classList.add('hidden'); landing.classList.remove('hidden');
 });
-startBtn.addEventListener('click',async()=>{ const res=await emitWithTimeout('game:start',{}); if(!res.ok)showNotice(res.error); else playSfx('start'); });
-restartBtn.addEventListener('click',async()=>{ const res=await emitWithTimeout('game:restart',{}); if(!res.ok)showNotice(res.error); else {winnerShownFor=null;winnerModal.classList.add('hidden');playSfx('start');} });
+function startDiceSpinVisual() {
+  clearInterval(diceSpinTimer);
+  diceBtn.classList.add('rolling');
+  let ticks = 0;
+  diceSpinTimer = setInterval(() => {
+    diceFace.textContent = diceChars[Math.floor(Math.random()*6)];
+    if (++ticks > 12) {
+      clearInterval(diceSpinTimer);
+      diceBtn.classList.remove('rolling');
+    }
+  }, 46);
+}
+
+startBtn.addEventListener('click',async()=>{
+  const res=await emitWithTimeout('game:start',{});
+  if(!res.ok)showNotice(res.error);
+});
+restartBtn.addEventListener('click',async()=>{
+  const res=await emitWithTimeout('game:restart',{});
+  if(!res.ok)showNotice(res.error);
+  else { winnerShownFor=null; winnerModal.classList.add('hidden'); }
+});
 diceBtn.addEventListener('click',async()=>{
   if(diceBtn.disabled)return;
-  ensureAudio(); playSfx('dice');
-  diceBtn.disabled=true; diceBtn.classList.add('rolling');
-  clearInterval(diceSpinTimer);
-  let ticks=0; diceSpinTimer=setInterval(()=>{diceFace.textContent=diceChars[Math.floor(Math.random()*6)]; if(++ticks>10){clearInterval(diceSpinTimer);diceBtn.classList.remove('rolling');}},45);
+  ensureAudio();
+  diceBtn.disabled=true;
   const res=await emitWithTimeout('game:roll',{});
-  if(!res.ok){showNotice(res.error);diceBtn.classList.remove('rolling');renderRoomMeta();}
+  if(!res.ok){showNotice(res.error);clearInterval(diceSpinTimer);diceBtn.classList.remove('rolling');renderRoomMeta();}
 });
 $('winnerCloseBtn').addEventListener('click',()=>winnerModal.classList.add('hidden'));
 
@@ -607,8 +693,16 @@ function showNextSticker() {
   playSfx('sticker');
   const target = roomState?.players.find(p => p.id === payload.targetId);
   const isMine = payload.senderId === socket.id;
-  stickerPopupImage.src = payload.sticker.url;
-  stickerPopupImage.alt = payload.sticker.name || 'Sticker';
+  if (payload.sticker.emoji) {
+    stickerPopupImage.classList.add('hidden');
+    stickerPopupEmoji.classList.remove('hidden');
+    stickerPopupEmoji.textContent = payload.sticker.emoji;
+  } else {
+    stickerPopupEmoji.classList.add('hidden');
+    stickerPopupImage.classList.remove('hidden');
+    stickerPopupImage.src = payload.sticker.url;
+    stickerPopupImage.alt = payload.sticker.name || 'Sticker';
+  }
   stickerSender.textContent = isMine ? 'You sent a sticker' : `${payload.senderName} sent a sticker`;
   stickerTargetLabel.textContent = payload.targetId === 'all' ? 'To everyone' : (payload.targetId === socket.id ? 'To you' : target ? `To ${target.name}` : '');
   stickerPopup.classList.remove('hidden','is-leaving');
@@ -623,44 +717,86 @@ function showNextSticker() {
 function ensureAudio() {
   if (!audioCtx) {
     const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (Ctx) audioCtx = new Ctx();
+    if (Ctx) {
+      audioCtx = new Ctx();
+      const compressor = audioCtx.createDynamicsCompressor();
+      compressor.threshold.value = -18;
+      compressor.knee.value = 18;
+      compressor.ratio.value = 7;
+      compressor.attack.value = .003;
+      compressor.release.value = .22;
+      const master = audioCtx.createGain();
+      master.gain.value = .92;
+      compressor.connect(master);
+      master.connect(audioCtx.destination);
+      sfxBus = compressor;
+    }
   }
   if (audioCtx?.state === 'suspended') audioCtx.resume().catch(()=>{});
+  audioUnlocked = !!audioCtx;
   return audioCtx;
 }
-function tone(freq, duration, type='sine', gain=.035, delay=0, endFreq=null) {
+function tone(freq, duration, type='sine', gain=.10, delay=0, endFreq=null, pan=0) {
   if (!speakerEnabled) return;
-  const ctx=ensureAudio(); if(!ctx)return;
+  const ctx=ensureAudio(); if(!ctx || !sfxBus)return;
   const osc=ctx.createOscillator(), g=ctx.createGain();
   const start=ctx.currentTime+delay;
-  osc.type=type; osc.frequency.setValueAtTime(freq,start);
+  osc.type=type; osc.frequency.setValueAtTime(Math.max(20,freq),start);
   if(endFreq) osc.frequency.exponentialRampToValueAtTime(Math.max(20,endFreq),start+duration);
-  g.gain.setValueAtTime(.0001,start); g.gain.exponentialRampToValueAtTime(gain,start+.015); g.gain.exponentialRampToValueAtTime(.0001,start+duration);
-  osc.connect(g); g.connect(ctx.destination); osc.start(start); osc.stop(start+duration+.03);
+  g.gain.setValueAtTime(.0001,start); g.gain.exponentialRampToValueAtTime(gain,start+.008); g.gain.exponentialRampToValueAtTime(.0001,start+duration);
+  osc.connect(g);
+  if (ctx.createStereoPanner) {
+    const p=ctx.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,pan)); g.connect(p); p.connect(sfxBus);
+  } else g.connect(sfxBus);
+  osc.start(start); osc.stop(start+duration+.04);
 }
-function noise(duration=.18,gain=.025,delay=0,filterFreq=1200) {
+function noise(duration=.18,gain=.09,delay=0,filterFreq=1200,filterType='bandpass') {
   if(!speakerEnabled)return;
-  const ctx=ensureAudio();if(!ctx)return;
+  const ctx=ensureAudio();if(!ctx || !sfxBus)return;
   const len=Math.max(1,Math.floor(ctx.sampleRate*duration));const buf=ctx.createBuffer(1,len,ctx.sampleRate);const data=buf.getChannelData(0);
-  for(let i=0;i<len;i++)data[i]=(Math.random()*2-1)*(1-i/len);
-  const src=ctx.createBufferSource();src.buffer=buf;const filter=ctx.createBiquadFilter();filter.type='bandpass';filter.frequency.value=filterFreq;filter.Q.value=.7;const g=ctx.createGain();g.gain.value=gain;src.connect(filter);filter.connect(g);g.connect(ctx.destination);src.start(ctx.currentTime+delay);
+  for(let i=0;i<len;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/len,.6);
+  const src=ctx.createBufferSource();src.buffer=buf;const filter=ctx.createBiquadFilter();filter.type=filterType;filter.frequency.value=filterFreq;filter.Q.value=.85;const g=ctx.createGain();
+  const start=ctx.currentTime+delay; g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(gain,start+.006);g.gain.exponentialRampToValueAtTime(.0001,start+duration);
+  src.connect(filter);filter.connect(g);g.connect(sfxBus);src.start(start);
 }
-function playSfx(kind) {
+function clickClack(delay=0, strength=1) {
+  noise(.045,.12*strength,delay,1550,'highpass');
+  tone(145,.045,'square',.07*strength,delay,95);
+}
+function playSfx(kind, detail=0) {
   if(!speakerEnabled)return;
   switch(kind){
-    case 'dice': noise(.30,.045,0,900); tone(130,.11,'square',.018,0,180); tone(180,.10,'triangle',.02,.12,120); break;
-    case 'step': tone(330,.055,'triangle',.018,0,285); break;
-    case 'ladder': [0,1,2,3].forEach(i=>tone(420*Math.pow(1.19,i),.16,'sine',.035,i*.12)); break;
-    case 'snake': noise(.65,.028,0,1800); tone(290,.72,'sawtooth',.018,0,74); break;
-    case 'blocked': tone(145,.16,'square',.025); tone(112,.22,'square',.018,.13); break;
-    case 'turn': tone(620,.12,'sine',.026); tone(820,.16,'sine',.024,.10); break;
-    case 'sticker': tone(690,.08,'sine',.025); tone(980,.11,'sine',.022,.07); break;
-    case 'join': tone(420,.10,'sine',.02); tone(620,.15,'sine',.022,.08); break;
-    case 'start': tone(260,.12,'triangle',.03); tone(390,.13,'triangle',.03,.1); tone(520,.18,'triangle',.03,.2); break;
-    case 'win': [523,659,784,1047].forEach((f,i)=>tone(f,.42,'triangle',.045,i*.12)); noise(.45,.018,.16,3200); break;
+    case 'diceRoll':
+      [0,.075,.14,.205,.27,.34,.405,.47,.535].forEach((d,i)=>clickClack(d,.7+(i%3)*.13));
+      tone(92,.62,'triangle',.05,0,62); break;
+    case 'diceLand': clickClack(0,1.25); tone(185,.13,'triangle',.13,.015,105); break;
+    case 'jump': tone(260,.075,'triangle',.105,0,430); tone(520,.06,'sine',.055,.035,640); break;
+    case 'land': noise(.07,.075,0,700,'lowpass'); tone(150,.09,'triangle',.085,0,92); break;
+    case 'ladder':
+      noise(.18,.065,0,1850,'highpass');
+      [0,1,2,3,4,5].forEach(i=>{tone(370*Math.pow(1.15,i),.15,'triangle',.09,i*.12);clickClack(i*.12,.58);}); break;
+    case 'ladderStep': clickClack(0,.52); tone(410+Number(detail||0)*22,.075,'sine',.055,0); break;
+    case 'snake':
+      noise(1.15,.115,0,2500,'highpass'); tone(310,1.08,'sawtooth',.065,0,72); tone(145,.82,'triangle',.08,.15,58); break;
+    case 'slideTick': noise(.045,.05,0,1100,'bandpass'); break;
+    case 'blocked': tone(155,.20,'square',.115); tone(104,.30,'square',.09,.14); noise(.12,.06,.02,480,'lowpass'); break;
+    case 'turn': tone(610,.13,'sine',.11); tone(860,.18,'sine',.10,.10); break;
+    case 'sticker':
+      tone(220,.11,'sine',.15,0,640); tone(860,.11,'triangle',.11,.075,1180); tone(1280,.16,'sine',.08,.14); noise(.09,.07,.055,2900,'highpass'); break;
+    case 'join': tone(390,.11,'sine',.08); tone(610,.16,'sine',.09,.09); break;
+    case 'start': [250,375,500,750].forEach((f,i)=>tone(f,.22,'triangle',.095,i*.11)); noise(.16,.06,.24,2100,'highpass'); break;
+    case 'victoryBuild': [392,523,659,784].forEach((f,i)=>tone(f,.25,'triangle',.10,i*.15)); break;
+    case 'win':
+      [523,659,784,1047,1319].forEach((f,i)=>tone(f,.55,'triangle',.14,i*.13));
+      [0,.12,.24,.36,.48].forEach(d=>noise(.20,.075,d,3400,'highpass')); break;
   }
 }
 
+// Sound is ON by default. The first tap unlocks browser audio; after that effects play automatically.
+document.addEventListener('pointerdown', () => ensureAudio(), { once:true, capture:true });
+
+socket.on('game:roll:start', () => { ensureAudio(); playSfx('diceRoll'); startDiceSpinVisual(); });
+socket.on('game:fx', ({ kind } = {}) => { if (kind) { ensureAudio(); playSfx(kind); } });
 socket.on('room:state', processRoomState);
 socket.on('room:notice', text => { showNotice(text); if (/joined/i.test(text)) playSfx('join'); });
 socket.on('sticker:popup', enqueueSticker);
@@ -696,6 +832,8 @@ speakerBtn.addEventListener('click',()=>{
 function updateVoiceUi(){
   micBtn.classList.toggle('off',!micEnabled);
   speakerBtn.classList.toggle('off',!speakerEnabled);
+  const onLabel=speakerBtn.querySelector('.speaker-on'); const offLabel=speakerBtn.querySelector('.speaker-off');
+  if(onLabel) onLabel.textContent='SOUND ON'; if(offLabel) offLabel.textContent='SOUND OFF';
   if(localStream) voiceStatus.textContent=micEnabled?'Microphone on':'Microphone muted';
   else voiceStatus.textContent='Tap MIC to enable voice';
 }

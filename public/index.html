@@ -61,7 +61,7 @@
           <div class="section-head">
             <div>
               <p class="eyebrow">PLAYERS</p>
-              <h2>Hello Mandathy Evde sugalleee</h2>
+              <h2>At the table</h2>
             </div>
             <span id="playerCount" class="count-badge">1/6</span>
           </div>
@@ -77,23 +77,8 @@
                 <span class="mic-on">MIC</span><span class="mic-off">MUTE</span>
               </button>
               <button id="speakerBtn" class="round-btn" aria-label="Toggle speaker and game sound" title="Speaker and game sound">
-                <span class="speaker-on">SOUND</span><span class="speaker-off">OFF</span>
+                <span class="speaker-on">SOUND ON</span><span class="speaker-off">SOUND OFF</span>
               </button>
-            </div>
-          </div>
-
-          <div class="reaction-card inner-card">
-            <div class="reaction-head">
-              <div>
-                <strong>Stickers</strong>
-                <small>Pop a reaction on screen</small>
-              </div>
-              <select id="stickerTarget" aria-label="Sticker target">
-                <option value="all">Everyone</option>
-              </select>
-            </div>
-            <div id="stickerTray" class="sticker-tray" aria-live="polite">
-              <span class="tray-empty">Loading stickers…</span>
             </div>
           </div>
 
@@ -138,6 +123,25 @@
             <button id="startBtn" class="btn btn-gold hidden">Start Game</button>
             <button id="restartBtn" class="btn btn-gold hidden">Play Again</button>
           </div>
+
+          <section class="sticker-dock glass-panel" aria-label="Reaction stickers">
+            <div class="reaction-head">
+              <div>
+                <p class="eyebrow">REACTIONS</p>
+                <strong>Send a sticker</strong>
+                <small>It pops on your screen and the selected player's screen.</small>
+              </div>
+              <label class="sticker-target-wrap">
+                <span>Send to</span>
+                <select id="stickerTarget" aria-label="Sticker target">
+                  <option value="all">Everyone</option>
+                </select>
+              </label>
+            </div>
+            <div id="stickerTray" class="sticker-tray" aria-live="polite">
+              <span class="tray-empty">Loading stickers…</span>
+            </div>
+          </section>
         </section>
       </div>
 
@@ -145,6 +149,7 @@
         <div class="sticker-pop-card">
           <div id="stickerSender" class="sticker-pop-sender">Sticker</div>
           <img id="stickerPopupImage" alt="Sticker reaction" />
+          <div id="stickerPopupEmoji" class="sticker-popup-emoji hidden" aria-hidden="true"></div>
           <div id="stickerTargetLabel" class="sticker-pop-target"></div>
         </div>
       </div>

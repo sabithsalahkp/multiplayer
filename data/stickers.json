@@ -1,5 +1,86 @@
 [
-  {"id":"laugh","name":"Laugh","url":"/stickers/laugh.png","enabled":true,"order":1},
-  {"id":"confident","name":"Confident","url":"/stickers/confident.png","enabled":true,"order":2},
-  {"id":"shy","name":"Shy","url":"/stickers/shy.png","enabled":true,"order":3}
+  {
+    "id": "laugh",
+    "name": "LOL",
+    "emoji": "😂",
+    "enabled": true,
+    "order": 1
+  },
+  {
+    "id": "rofl",
+    "name": "ROFL",
+    "emoji": "🤣",
+    "enabled": true,
+    "order": 2
+  },
+  {
+    "id": "cry",
+    "name": "Crying",
+    "emoji": "😭",
+    "enabled": true,
+    "order": 3
+  },
+  {
+    "id": "love",
+    "name": "Love",
+    "emoji": "❤️",
+    "enabled": true,
+    "order": 4
+  },
+  {
+    "id": "fire",
+    "name": "Fire",
+    "emoji": "🔥",
+    "enabled": true,
+    "order": 5
+  },
+  {
+    "id": "cool",
+    "name": "Cool",
+    "emoji": "😎",
+    "enabled": true,
+    "order": 6
+  },
+  {
+    "id": "dead",
+    "name": "I'm Dead",
+    "emoji": "💀",
+    "enabled": true,
+    "order": 7
+  },
+  {
+    "id": "clown",
+    "name": "Clown",
+    "emoji": "🤡",
+    "enabled": true,
+    "order": 8
+  },
+  {
+    "id": "angry",
+    "name": "Angry",
+    "emoji": "😡",
+    "enabled": true,
+    "order": 9
+  },
+  {
+    "id": "clap",
+    "name": "Clap",
+    "emoji": "👏",
+    "enabled": true,
+    "order": 10
+  },
+  {
+    "id": "party",
+    "name": "Party",
+    "emoji": "🥳",
+    "enabled": true,
+    "order": 11
+  },
+  {
+    "id": "wow",
+    "name": "Wow",
+    "emoji": "😱",
+    "enabled": true,
+    "order": 12
+  }
 ]

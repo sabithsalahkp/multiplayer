@@ -74,10 +74,17 @@ function renderStickers(list) {
 
     const thumb = document.createElement('div');
     thumb.className = 'sticker-thumb';
-    const img = document.createElement('img');
-    img.src = sticker.url;
-    img.alt = sticker.name;
-    thumb.appendChild(img);
+    if (sticker.emoji) {
+      const emoji = document.createElement('div');
+      emoji.className = 'emoji-preview';
+      emoji.textContent = sticker.emoji;
+      thumb.appendChild(emoji);
+    } else {
+      const img = document.createElement('img');
+      img.src = sticker.url;
+      img.alt = sticker.name;
+      thumb.appendChild(img);
+    }
 
     const meta = document.createElement('div');
     meta.className = 'sticker-meta';

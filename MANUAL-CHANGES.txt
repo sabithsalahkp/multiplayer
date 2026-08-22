@@ -1,27 +1,32 @@
 FAST MANUAL STEPS
 =================
 
-FIRST PUBLISH
-1. Upload ALL files/folders from this project to ONE GitHub repo.
-2. Render > New > Blueprint.
-3. Select the GitHub repo.
-4. Deploy and wait until it says Live.
-5. Test: https://YOUR-URL/health
-6. Main game: https://YOUR-URL/
-7. Admin: https://YOUR-URL/admin
+TO UPDATE YOUR CURRENT GAME
+1. Extract this ZIP.
+2. In your existing GitHub repo, replace the old project files with ALL files/folders from this ZIP.
+3. Commit the changes.
+4. Render redeploys automatically if the repo is already connected.
+5. Wait until Render says Live.
+6. Test: https://YOUR-URL/health
+7. Game: https://YOUR-URL/
+8. Admin: https://YOUR-URL/admin
 
-YOU DO NOT NEED
-- database
-- admin password
-- environment variable
-- persistent disk
+NO EXTRA SETUP
+- no database
+- no admin password
+- no environment variable
+- no persistent disk
+- no separate backend
 
-ADD A STICKER PERMANENTLY
-1. Upload PNG/JPG/WEBP to public/stickers/
-2. Add its entry in data/stickers.json
-3. Commit. Render redeploys automatically.
+DEFAULT SOUND
+Sound is ON. Chrome unlocks audio after the first tap/click automatically.
 
-CHANGE GAME RULES PERMANENTLY
+ADD YOUR OWN PERMANENT STICKER
+1. Upload PNG/JPG/WEBP into public/stickers/
+2. Add an entry in data/stickers.json
+3. Commit; Render redeploys.
+
+PERMANENT RULE CHANGES
 Edit data/settings.json and commit.
 
 IMPORTANT

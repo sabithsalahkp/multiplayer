@@ -53,3 +53,108 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
 @media(max-width:700px){.app-shell{padding:11px}.landing{padding:34px 20px;margin-top:3vh;border-radius:24px}.topbar{grid-template-columns:auto 1fr auto}.brand-mini{display:none}.room-chip{justify-self:start}.live-badge{display:none}.game-layout{gap:11px}.side-panel{padding:13px;border-radius:19px;grid-template-columns:1fr}.section-head,.players-list{grid-column:auto}.players-list{grid-template-columns:1fr 1fr}.player-row{grid-template-columns:34px 1fr auto;min-height:48px;padding:5px}.mini-pawn{transform:scale(.85)}.voice-card,.reaction-card{grid-column:auto}.board-stage{padding:0}.board-frame{padding:11px;border-radius:17px}.board-corner{display:none}.board{border-radius:6px}.piece-name{font-size:5.5px;max-width:42px;bottom:-7px}.board-piece{width:7.2%}.cell-number{top:2px;left:3px}.status-strip{padding:10px 12px;grid-template-columns:1fr auto}.move-event{display:none}.status-copy strong{font-size:16px}.controls{padding:10px 11px}.dice{width:60px;height:60px;border-radius:16px}.dice-face{font-size:39px}.controls>.btn{min-width:105px}.sticker-tray{grid-template-columns:repeat(5,1fr)}.sticker-btn{height:58px}.reaction-head select{width:125px}.voice-card{justify-content:space-between}}
 @media(max-width:450px){.players-list{grid-template-columns:1fr}.join-row{grid-template-columns:1fr 94px}.status-strip{min-height:62px}.last-roll{padding:8px}.last-roll b{font-size:13px}.controls{align-items:center}.dice-wrap{gap:9px}.dice-wrap small{display:none}.controls>.btn{height:48px;padding:0 12px}.sticker-tray{grid-template-columns:repeat(4,1fr)}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}.board-piece{transition:none!important}}
+
+/* ===== Premium motion + reaction dock upgrade ===== */
+.sticker-dock{border-radius:22px;padding:16px 18px;overflow:hidden;position:relative}
+.sticker-dock:before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(240,217,144,.12),transparent 32%,rgba(54,92,152,.06));pointer-events:none}
+.sticker-dock>*{position:relative}
+.sticker-dock .reaction-head{align-items:end;gap:16px}
+.sticker-dock .reaction-head strong{font-family:Georgia,serif;font-size:19px;font-weight:600;margin-top:3px}
+.sticker-dock .reaction-head small{font-size:10px}
+.sticker-target-wrap{display:grid;grid-template-columns:auto minmax(120px,160px);gap:8px;align-items:center}
+.sticker-target-wrap>span{font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#807768}
+.sticker-dock .reaction-head select{width:100%;height:38px;border-radius:12px;font-weight:800}
+.sticker-dock .sticker-tray{grid-template-columns:repeat(12,minmax(58px,1fr));gap:9px;margin-top:13px}
+.sticker-btn{height:78px;display:grid;grid-template-rows:1fr auto;place-items:center;gap:1px;padding:5px 3px 4px;border-radius:17px;background:linear-gradient(145deg,#fffdf7,#eee2c9);box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 4px 10px rgba(53,40,19,.07);overflow:visible}
+.sticker-btn:hover{transform:translateY(-4px) scale(1.05);box-shadow:0 12px 22px rgba(55,43,20,.16)}
+.sticker-btn:active{transform:translateY(1px) scale(.94)}
+.sticker-btn .sticker-emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;font-size:42px;line-height:1;filter:drop-shadow(0 5px 4px rgba(36,29,19,.18));transition:transform .18s cubic-bezier(.2,1.5,.4,1)}
+.sticker-btn:hover .sticker-emoji{transform:scale(1.13) rotate(-4deg)}
+.sticker-btn small{font-size:8px;line-height:1;color:#776e60;font-weight:900;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sticker-btn img{max-height:49px;object-fit:contain}
+
+/* More animal-like snakes: richer body, forward-looking face, tapered tail. */
+.snake-group{animation:snakeAlivePremium 2.7s ease-in-out infinite alternate;filter:drop-shadow(0 .8px .35px rgba(0,0,0,.22))}
+.snake-body{stroke-linecap:round;stroke-linejoin:round}
+.snake-highlight{fill:none;stroke:rgba(255,255,255,.34);stroke-linecap:round;stroke-dasharray:2.2 1.2;opacity:.78}
+.snake-scales{stroke:rgba(9,29,15,.42);stroke-dasharray:.7 1.5;animation:scalesMove 2.2s linear infinite}
+.snake-head{stroke:#182617;stroke-width:.48;filter:drop-shadow(.35px .5px .25px rgba(0,0,0,.32))}
+.snake-brow{fill:none;stroke:rgba(18,25,14,.58);stroke-width:.35;stroke-linecap:round}
+.snake-eye{fill:#fff6d9;stroke:#1f271b;stroke-width:.16}
+.snake-pupil{fill:#0b100b}
+.snake-nostril{fill:#1f2118;opacity:.72}
+.snake-mouth{fill:none;stroke:#3b171b;stroke-width:.28;stroke-linecap:round}
+.snake-tongue{stroke:#d71f43;stroke-width:.48;filter:drop-shadow(0 0 .25px #541020);animation:tongueFlickFast .92s steps(2,end) infinite}
+.snake-tail{stroke:rgba(24,31,18,.55);stroke-width:.22}
+.ladder-group{animation:ladderBreathe 2.8s ease-in-out infinite alternate}
+.ladder-rung-group{animation:ladderGleam 1.9s ease-in-out infinite}
+.ladder-rail{stroke-width:1.35}
+.ladder-rung{stroke-width:1.18}
+
+/* 3D mascot pieces rather than dots. */
+.board-piece{width:5.15%;aspect-ratio:.72/1;transform:translate(-50%,-76%);filter:drop-shadow(0 5px 3px rgba(35,22,8,.35));z-index:10}
+.character-shadow{position:absolute;left:14%;right:14%;bottom:-2%;height:13%;border-radius:50%;background:rgba(32,22,12,.27);filter:blur(2px)}
+.pawn-head{top:0;left:50%;width:46%;background:radial-gradient(circle at 34% 25%,#fff 0 5%,transparent 9%),linear-gradient(145deg,#ffdcb3 0 38%,#c9855a 100%);border:1px solid rgba(69,43,24,.38);box-shadow:inset -2px -2px 3px rgba(82,44,23,.14),inset 2px 2px 2px rgba(255,255,255,.35)}
+.face-eye{position:absolute;top:42%;width:8%;height:11%;border-radius:50%;background:#282016}
+.eye-left{left:29%}.eye-right{right:29%}
+.face-smile{position:absolute;left:36%;right:36%;top:61%;height:10%;border-bottom:1.2px solid #7f3d36;border-radius:50%}
+.pawn-body{left:22%;right:22%;top:31%;bottom:17%;clip-path:none;border-radius:33% 33% 24% 24%;background:linear-gradient(100deg,color-mix(in srgb,var(--piece),#000 28%),var(--piece) 36%,color-mix(in srgb,var(--piece),#fff 28%) 55%,color-mix(in srgb,var(--piece),#000 18%));border:1px solid rgba(50,35,14,.32);box-shadow:inset 2px 0 3px rgba(255,255,255,.26)}
+.pawn-arm{position:absolute;top:38%;width:17%;height:39%;border-radius:999px;background:linear-gradient(90deg,color-mix(in srgb,var(--piece),#000 17%),var(--piece),color-mix(in srgb,var(--piece),#fff 18%));border:1px solid rgba(50,35,14,.25);transform-origin:top center}
+.arm-left{left:12%;transform:rotate(12deg)}.arm-right{right:12%;transform:rotate(-12deg)}
+.pawn-foot{position:absolute;bottom:5%;width:30%;height:19%;border-radius:55% 55% 42% 42%;background:linear-gradient(#fff3,color-mix(in srgb,var(--piece),#000 22%));border:1px solid rgba(50,35,14,.30)}
+.foot-left{left:20%;transform:rotate(4deg)}.foot-right{right:20%;transform:rotate(-4deg)}
+.pawn-initial{top:51%;font-size:clamp(6px,.68vw,9px)}
+.piece-name{bottom:-12px;background:rgba(18,21,17,.90);border:1px solid rgba(255,255,255,.18);max-width:78px;padding:2px 5px}
+.board-piece.step-hop{animation:characterHop .19s cubic-bezier(.2,.85,.35,1)}
+.board-piece.blocked-bump{animation:blockedBump .55s ease}
+.board-piece.jump-snake{animation:snakeRidePremium .17s ease-in-out infinite alternate}
+.board-piece.jump-ladder{animation:ladderClimbPremium .18s ease-in-out infinite alternate}
+.board-piece.arrive{animation:characterArrive .44s cubic-bezier(.18,.92,.34,1.35)}
+.board-piece.victory-jump{z-index:30;animation:victoryJump .52s cubic-bezier(.18,.95,.32,1) 2}
+
+/* More physical dice animation. */
+.dice.rolling{animation:diceRollPremium .23s linear infinite;box-shadow:0 9px 0 #bda87f,0 18px 27px rgba(55,41,18,.26),inset 4px 4px 10px rgba(255,255,255,.82),inset -5px -5px 9px rgba(118,91,44,.10)}
+
+/* Sticker popup is bigger, faster, and more game-like. */
+.sticker-popup.is-showing{background:rgba(19,22,16,.16)}
+.sticker-pop-card{width:min(350px,78vw);background:rgba(255,251,241,.96);border:2px solid rgba(197,150,62,.35);transform:scale(.18) rotate(-16deg) translateY(65px);box-shadow:0 36px 95px rgba(25,21,12,.34);transition:transform .42s cubic-bezier(.12,1.55,.28,1),opacity .18s}
+.sticker-popup.is-showing .sticker-pop-card{transform:scale(1) rotate(0) translateY(0)}
+.sticker-popup.is-showing .sticker-pop-card:after{content:"";position:absolute;inset:-20px;border:3px solid rgba(240,190,72,.28);border-radius:38px;animation:stickerShock .55s ease-out forwards;pointer-events:none}
+.sticker-popup-emoji{height:240px;display:grid;place-items:center;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;font-size:168px;line-height:1;filter:drop-shadow(0 18px 10px rgba(42,31,14,.24));animation:emojiWiggle .6s cubic-bezier(.18,1.35,.35,1)}
+
+/* Winner appears only after final movement and has a stronger entrance. */
+.modal:not(.hidden) .winner-card{animation:winnerCardIn .58s cubic-bezier(.14,1.35,.28,1)}
+.modal:not(.hidden) .crown{animation:crownDrop .7s cubic-bezier(.18,1.4,.32,1)}
+.winner-card:after{content:"✦  ✦  ★  ✦  ✦";position:absolute;left:0;right:0;top:11px;color:#c99534;font-size:20px;letter-spacing:12px;animation:winnerSpark 1.2s ease-in-out infinite alternate}
+
+@keyframes snakeAlivePremium{0%{transform:translate(-.32px,.12px) rotate(-.35deg) scaleY(.988)}50%{transform:translate(.2px,-.18px) rotate(.12deg) scaleY(1.012)}100%{transform:translate(.38px,.12px) rotate(.35deg) scaleY(.995)}}
+@keyframes tongueFlickFast{0%,54%,100%{opacity:.04;stroke-dasharray:0 10}58%,85%{opacity:1;stroke-dasharray:10 0}}
+@keyframes ladderBreathe{from{filter:brightness(.96)}to{filter:brightness(1.08)}}
+@keyframes ladderGleam{0%,65%,100%{opacity:.72}75%{opacity:1}}
+@keyframes characterHop{0%{transform:translate(-50%,-76%) scale(1)}45%{transform:translate(-50%,-103%) scale(.98,1.06)}100%{transform:translate(-50%,-76%) scale(1)}}
+@keyframes blockedBump{0%,100%{transform:translate(-50%,-76%)}25%{transform:translate(-58%,-76%) rotate(-7deg)}50%{transform:translate(-42%,-76%) rotate(7deg)}75%{transform:translate(-54%,-76%) rotate(-3deg)}}
+@keyframes snakeRidePremium{from{transform:translate(-50%,-79%) rotate(-8deg) scale(.98)}to{transform:translate(-50%,-73%) rotate(8deg) scale(1.03)}}
+@keyframes ladderClimbPremium{from{transform:translate(-55%,-80%) rotate(-4deg)}to{transform:translate(-45%,-72%) rotate(4deg)}}
+@keyframes characterArrive{0%{transform:translate(-50%,-76%) scale(.78)}52%{transform:translate(-50%,-104%) scale(1.13)}78%{transform:translate(-50%,-70%) scale(.96)}100%{transform:translate(-50%,-76%) scale(1)}}
+@keyframes victoryJump{0%{transform:translate(-50%,-76%) rotate(0) scale(1)}45%{transform:translate(-50%,-130%) rotate(-8deg) scale(1.16)}65%{transform:translate(-50%,-122%) rotate(8deg) scale(1.12)}100%{transform:translate(-50%,-76%) rotate(0) scale(1)}}
+@keyframes diceRollPremium{0%{transform:translateY(0) rotate(0) scale(1)}25%{transform:translateY(-5px) rotate(11deg) scale(1.06)}50%{transform:translateY(1px) rotate(-9deg) scale(.97)}75%{transform:translateY(-3px) rotate(7deg) scale(1.03)}100%{transform:translateY(0) rotate(0) scale(1)}}
+@keyframes stickerShock{0%{opacity:.8;transform:scale(.68)}100%{opacity:0;transform:scale(1.2)}}
+@keyframes emojiWiggle{0%{transform:scale(.45) rotate(-16deg)}55%{transform:scale(1.12) rotate(7deg)}75%{transform:scale(.96) rotate(-3deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes winnerCardIn{0%{transform:scale(.55) translateY(45px);opacity:0}65%{transform:scale(1.05) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
+@keyframes crownDrop{0%{transform:translateY(-55px) rotate(-18deg) scale(.5);opacity:0}70%{transform:translateY(4px) rotate(5deg) scale(1.15);opacity:1}100%{transform:none}}
+@keyframes winnerSpark{from{transform:scale(.92);opacity:.55}to{transform:scale(1.06);opacity:1}}
+
+@media(max-width:1060px){.sticker-dock .sticker-tray{grid-template-columns:repeat(8,1fr)}}
+@media(max-width:700px){
+  .sticker-dock{padding:13px;border-radius:18px}
+  .sticker-dock .reaction-head{align-items:stretch;flex-direction:column}
+  .sticker-target-wrap{grid-template-columns:auto 1fr}
+  .sticker-dock .sticker-tray{grid-template-columns:repeat(6,1fr);gap:7px}
+  .sticker-btn{height:68px;border-radius:14px}.sticker-btn .sticker-emoji{font-size:36px}.sticker-btn small{font-size:7px}
+  .board-piece{width:6.6%}.piece-name{font-size:5.5px;max-width:48px;bottom:-8px}
+  .sticker-popup-emoji{height:210px;font-size:145px}
+}
+@media(max-width:450px){
+  .sticker-dock .sticker-tray{grid-template-columns:repeat(4,1fr)}
+  .sticker-btn{height:70px}.sticker-btn .sticker-emoji{font-size:38px}
+}
