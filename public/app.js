@@ -82,53 +82,48 @@ let stickerTimer=null;socket.on('sticker:pop',data=>{const pop=$('stickerPopup')
 
 // ---------- SNAKES & LADDERS ----------
 const jumps={4:14,9:31,20:38,28:84,40:59,51:67,63:81,71:91,17:7,54:34,62:19,64:60,87:24,93:73,95:75,99:78};
+const ladderPairs=Object.entries(jumps).filter(([a,b])=>Number(b)>Number(a)).map(([a,b])=>[Number(a),Number(b)]);
+const snakePairs=Object.entries(jumps).filter(([a,b])=>Number(b)<Number(a)).map(([a,b])=>[Number(a),Number(b)]);
 const boardCells=$('boardCells'),pathsLayer=$('pathsLayer'),piecesLayer=$('piecesLayer'),dice=$('dice'),rollBtn=$('rollBtn'),startSnakesBtn=$('startSnakesBtn'),turnText=$('turnText'),lastMoveText=$('lastMoveText'),snakesStatus=$('snakesStatus');
-function cellCenter(n){const row=Math.floor((n-1)/10),offset=(n-1)%10,col=row%2===0?offset:9-offset;return{x:(col+.5)*100,y:(9-row+.5)*100}}
+function cellCenter(n){const safe=Math.max(1,Math.min(100,Number(n)||1)),row=Math.floor((safe-1)/10),pos=(safe-1)%10,col=row%2===0?pos:9-pos;return{x:col*10+5,y:(9-row)*10+5}}
+function svgEl(name,attrs={}){const el=document.createElementNS('http://www.w3.org/2000/svg',name);for(const[k,v]of Object.entries(attrs))el.setAttribute(k,String(v));return el}
+function curvedPath(a,b,bend=1){const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len,amount=Math.min(9,2.8+len*.08)*bend,c1={x:a.x+dx*.29+nx*amount,y:a.y+dy*.29+ny*amount},c2={x:a.x+dx*.68-nx*amount*.72,y:a.y+dy*.68-ny*amount*.72};return{d:`M ${a.x} ${a.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${b.x} ${b.y}`,c1,c2}}
 function buildBoard(){
-  boardCells.innerHTML='';for(let visualRow=0;visualRow<10;visualRow++){const logicalRow=9-visualRow;for(let col=0;col<10;col++){const offset=logicalRow%2===0?col:9-col,n=logicalRow*10+offset+1,d=document.createElement('div');d.className='board-cell '+(((visualRow+col)%2)?'dark':'light');d.textContent=n;boardCells.appendChild(d)}}drawPaths();
+  if(!boardCells||!pathsLayer)return;
+  boardCells.innerHTML='';
+  for(let displayRow=9;displayRow>=0;displayRow--){
+    const row=[];for(let i=1;i<=10;i++)row.push(displayRow*10+i);if(displayRow%2===1)row.reverse();
+    row.forEach(n=>{const d=document.createElement('div');d.className='board-cell '+(((displayRow+n)%2)?'dark':'light');d.dataset.cell=String(n);const sp=document.createElement('span');sp.textContent=n;d.appendChild(sp);boardCells.appendChild(d)});
+  }
+  drawPaths();
 }
-function svgEl(name,attrs={}){const el=document.createElementNS('http://www.w3.org/2000/svg',name);for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);return el}
 function drawPaths(){
-  pathsLayer.innerHTML='';
+  pathsLayer.innerHTML='';pathsLayer.setAttribute('viewBox','0 0 100 100');pathsLayer.setAttribute('preserveAspectRatio','none');
   const defs=svgEl('defs');
-  const shadow=svgEl('filter',{id:'softShadow',x:'-30%',y:'-30%',width:'160%',height:'160%'});
-  shadow.appendChild(svgEl('feDropShadow',{dx:'0',dy:'7',stdDeviation:'5','flood-color':'#1b1208','flood-opacity':'.34'}));
-  defs.appendChild(shadow);pathsLayer.appendChild(defs);
-  Object.entries(jumps).forEach(([a,b])=>{const from=Number(a),to=Number(b),A=cellCenter(from),B=cellCenter(to);A.x*=10;A.y*=10;B.x*=10;B.y*=10;if(to>from)drawLadder(A,B,from);else drawSnake(A,B,from)});
+  const shadow=svgEl('filter',{id:'softShadow',x:'-30%',y:'-30%',width:'160%',height:'160%'});shadow.appendChild(svgEl('feDropShadow',{dx:'0',dy:'0.8',stdDeviation:'0.55','flood-color':'#1b1208','flood-opacity':'.36'}));defs.appendChild(shadow);
+  const wood=svgEl('linearGradient',{id:'woodRail',x1:'0%',y1:'0%',x2:'100%',y2:'100%'});[['0%','#f0c17c'],['35%','#9c5b25'],['70%','#d08a3f'],['100%','#6f3d19']].forEach(([o,c])=>wood.appendChild(svgEl('stop',{offset:o,'stop-color':c})));defs.appendChild(wood);
+  const palettes=[['#173f24','#61a844','#d8c85c'],['#4b1c40','#b64d78','#edc46f'],['#173f58','#42a0b9','#e0cf68'],['#64251a','#d76031','#e5cd69'],['#2a471d','#78b23e','#dac055'],['#3e225b','#9160b5','#dbc369']];
+  snakePairs.forEach(([from,to],i)=>{const pal=palettes[i%palettes.length],g=svgEl('linearGradient',{id:`snakeGrad${i}`,x1:'0%',y1:'0%',x2:'100%',y2:'100%'});[['0%',pal[0]],['42%',pal[1]],['72%',pal[2]],['100%',pal[0]]].forEach(([o,c])=>g.appendChild(svgEl('stop',{offset:o,'stop-color':c})));defs.appendChild(g)});
+  pathsLayer.appendChild(defs);
+  ladderPairs.forEach(([from,to],i)=>drawLadder(cellCenter(from),cellCenter(to),i));
+  snakePairs.forEach(([from,to],i)=>drawSnake(cellCenter(from),cellCenter(to),i));
 }
-function drawLadder(A,B,seed){
-  const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy),nx=-dy/len*18,ny=dx/len*18;
-  const g=svgEl('g',{class:'ladder-group',filter:'url(#softShadow)'});
-  g.append(svgEl('line',{x1:A.x+nx+3,y1:A.y+ny+5,x2:B.x+nx+3,y2:B.y+ny+5,class:'ladder-shadow'}),svgEl('line',{x1:A.x-nx+3,y1:A.y-ny+5,x2:B.x-nx+3,y2:B.y-ny+5,class:'ladder-shadow'}));
-  g.append(svgEl('line',{x1:A.x+nx,y1:A.y+ny,x2:B.x+nx,y2:B.y+ny,class:'ladder-rail'}),svgEl('line',{x1:A.x-nx,y1:A.y-ny,x2:B.x-nx,y2:B.y-ny,class:'ladder-rail'}));
-  g.append(svgEl('line',{x1:A.x+nx-3,y1:A.y+ny-2,x2:B.x+nx-3,y2:B.y+ny-2,class:'ladder-highlight'}),svgEl('line',{x1:A.x-nx-3,y1:A.y-ny-2,x2:B.x-nx-3,y2:B.y-ny-2,class:'ladder-highlight'}));
-  const steps=Math.max(5,Math.floor(len/58));
-  for(let i=1;i<steps;i++){const t=i/steps,x=A.x+dx*t,y=A.y+dy*t;g.append(svgEl('line',{x1:x+nx,y1:y+ny,x2:x-nx,y2:y-ny,class:'ladder-rung'}),svgEl('line',{x1:x+nx-1,y1:y+ny-2,x2:x-nx-1,y2:y-ny-2,class:'ladder-rung-hi'}))}
+function drawLadder(a,b,i){
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,ox=-dy/len*1.45,oy=dx/len*1.45,g=svgEl('g',{class:'ladder-group',filter:'url(#softShadow)'});
+  [[ox,oy],[-ox,-oy]].forEach(([x,y])=>{g.appendChild(svgEl('line',{x1:a.x+x+.28,y1:a.y+y+.38,x2:b.x+x+.28,y2:b.y+y+.38,class:'ladder-shadow'}));const rail=svgEl('line',{x1:a.x+x,y1:a.y+y,x2:b.x+x,y2:b.y+y,class:'ladder-rail'});rail.style.stroke='url(#woodRail)';g.appendChild(rail);g.appendChild(svgEl('line',{x1:a.x+x-.2,y1:a.y+y-.16,x2:b.x+x-.2,y2:b.y+y-.16,class:'ladder-highlight'}))});
+  let rung=0;for(let t=.08;t<.97;t+=.11){const cx=a.x+dx*t,cy=a.y+dy*t,r=svgEl('g',{class:'ladder-rung-group'});r.appendChild(svgEl('line',{x1:cx+ox,y1:cy+oy,x2:cx-ox,y2:cy-oy,class:'ladder-rung'}));r.appendChild(svgEl('line',{x1:cx+ox,y1:cy+oy-.14,x2:cx-ox,y2:cy-oy-.14,class:'ladder-rung-hi'}));g.appendChild(r);rung++}
   pathsLayer.appendChild(g);
 }
-function drawSnake(A,B,seed){
-  const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy),px=-dy/len,py=dx/len;
-  const sway=70+(seed%4)*12;
-  const mid={x:A.x+dx*.5,y:A.y+dy*.5};
-  const c1={x:A.x+dx*.16+px*sway,y:A.y+dy*.16+py*sway};
-  const c2={x:A.x+dx*.34-px*sway*.72,y:A.y+dy*.34-py*sway*.72};
-  const c3={x:A.x+dx*.66+px*sway*.78,y:A.y+dy*.66+py*sway*.78};
-  const c4={x:A.x+dx*.84-px*sway*.58,y:A.y+dy*.84-py*sway*.58};
-  const d=`M ${A.x} ${A.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${mid.x} ${mid.y} C ${c3.x} ${c3.y}, ${c4.x} ${c4.y}, ${B.x} ${B.y}`;
-  const palettes=[['#73d13d','#237d39','#103f2a'],['#ff785c','#c93c3c','#69222c'],['#916cff','#5536aa','#2b205f'],['#f6c84a','#b97921','#5d3816']];
-  const pal=palettes[seed%palettes.length],id=`snakeGrad${seed}`;
-  const defs=pathsLayer.querySelector('defs'),grad=svgEl('linearGradient',{id,x1:'0',y1:'0',x2:'1',y2:'1'});
-  [['0%',pal[0]],['48%',pal[1]],['100%',pal[2]]].forEach(([o,c])=>grad.appendChild(svgEl('stop',{offset:o,'stop-color':c})));defs.appendChild(grad);
-  const g=svgEl('g',{class:`snake-group snake-style-${seed%4}`,filter:'url(#softShadow)'});
-  g.append(svgEl('path',{d,class:'snake-body-under'}),svgEl('path',{d,class:'snake-body',stroke:`url(#${id})`}),svgEl('path',{d,class:'snake-belly'}),svgEl('path',{d,class:'snake-scales'}));
-  g.appendChild(svgEl('circle',{cx:B.x,cy:B.y,r:10,fill:pal[2],class:'snake-tail'}));
-  const angle=Math.atan2(A.y-c1.y,A.x-c1.x)*180/Math.PI;
-  const head=svgEl('g',{class:'snake-head-group',transform:`translate(${A.x} ${A.y}) rotate(${angle})`});
-  head.append(svgEl('ellipse',{cx:0,cy:0,rx:38,ry:29,class:'snake-head',fill:pal[0]}),svgEl('ellipse',{cx:11,cy:0,rx:23,ry:20,class:'snake-snout',fill:pal[1]}));
-  head.append(svgEl('circle',{cx:12,cy:-13,r:8,class:'snake-eye'}),svgEl('circle',{cx:12,cy:13,r:8,class:'snake-eye'}),svgEl('circle',{cx:16,cy:-13,r:3.5,class:'snake-pupil'}),svgEl('circle',{cx:16,cy:13,r:3.5,class:'snake-pupil'}));
-  head.append(svgEl('circle',{cx:28,cy:-6,r:2.2,class:'snake-nostril'}),svgEl('circle',{cx:28,cy:6,r:2.2,class:'snake-nostril'}));
-  head.append(svgEl('path',{d:'M 28 0 Q 38 0 47 0',class:'snake-tongue'}),svgEl('path',{d:'M 45 0 L 60 -8 M 45 0 L 60 8',class:'snake-tongue fork'}));
-  g.appendChild(head);pathsLayer.appendChild(g);
+function drawSnake(a,b,i){
+  const bend=i%2===0?1:-1,curve=curvedPath(a,b,bend),g=svgEl('g',{class:'snake-group',filter:'url(#softShadow)'}),width=2.7+(i%3)*.25;
+  g.appendChild(svgEl('path',{d:curve.d,class:'snake-body-under','stroke-width':width+1.1}));
+  const body=svgEl('path',{d:curve.d,class:'snake-body','stroke-width':width});body.style.stroke=`url(#snakeGrad${i})`;g.appendChild(body);
+  g.appendChild(svgEl('path',{d:curve.d,class:'snake-belly','stroke-width':.55}));g.appendChild(svgEl('path',{d:curve.d,class:'snake-scales','stroke-width':1.1}));
+  const hx=a.x-curve.c1.x,hy=a.y-curve.c1.y,angle=Math.atan2(hy,hx)*180/Math.PI,head=svgEl('g',{class:'snake-head-group',transform:`translate(${a.x} ${a.y}) rotate(${angle})`});
+  head.appendChild(svgEl('ellipse',{cx:0,cy:0,rx:2.9,ry:2.05,class:'snake-head',fill:`url(#snakeGrad${i})`}));head.appendChild(svgEl('ellipse',{cx:1.05,cy:0,rx:1.75,ry:1.35,class:'snake-snout',fill:`url(#snakeGrad${i})`}));
+  [[1.05,-.78],[1.05,.78]].forEach(([x,y])=>{head.appendChild(svgEl('circle',{cx:x,cy:y,r:.53,class:'snake-eye'}));head.appendChild(svgEl('circle',{cx:x+.24,cy:y,r:.22,class:'snake-pupil'}))});
+  head.appendChild(svgEl('circle',{cx:2.12,cy:-.42,r:.13,class:'snake-nostril'}));head.appendChild(svgEl('circle',{cx:2.12,cy:.42,r:.13,class:'snake-nostril'}));head.appendChild(svgEl('line',{x1:2.45,y1:0,x2:4.35,y2:0,class:'snake-tongue'}));head.appendChild(svgEl('line',{x1:3.9,y1:0,x2:4.8,y2:-.55,class:'snake-tongue'}));head.appendChild(svgEl('line',{x1:3.9,y1:0,x2:4.8,y2:.55,class:'snake-tongue'}));g.appendChild(head);
+  const tx=b.x-curve.c2.x,ty=b.y-curve.c2.y,tang=Math.atan2(ty,tx)*180/Math.PI,tail=svgEl('g',{transform:`translate(${b.x} ${b.y}) rotate(${tang})`});tail.appendChild(svgEl('path',{d:'M -1.6 -1 Q .2 0 3.4 0 Q .2 0 -1.6 1 Z',fill:`url(#snakeGrad${i})`,class:'snake-tail'}));g.appendChild(tail);pathsLayer.appendChild(g);
 }
 buildBoard();
 function ensurePieces(){

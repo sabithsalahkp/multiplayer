@@ -157,7 +157,7 @@ function samePath(a,b){ return a.length===b.length&&a.every((v,i)=>v===b[i]); }
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static(PUBLIC_DIR));
-app.get('/health',(_q,res)=>res.json({ok:true,version:'7.0.0'}));
+app.get('/health',(_q,res)=>res.json({ok:true,version:'7.1.0'}));
 app.get('/config',(_q,res)=>res.json({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],settings:publicSettings()}));
 app.get('/api/stickers',(_q,res)=>res.json({ok:true,stickers:publicStickers()}));
 app.get('/admin',(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'admin.html')));

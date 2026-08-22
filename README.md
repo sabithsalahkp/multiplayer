@@ -12,4 +12,4 @@ Three multiplayer browser games: Snakes & Ladders, Tic Tac Toe, and Word Search.
 ## Deploy
 Upload all files to the GitHub repository already connected to Render. Render will redeploy automatically. No database, admin password or environment variables are required for this build.
 
-Health check: `/health` should report version `7.0.0`.
+Health check: `/health` should report version `7.1.0`.
