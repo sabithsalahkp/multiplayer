@@ -16,7 +16,7 @@
         <div class="logo">P</div>
         <span class="eyebrow">PRIVATE MULTIPLAYER GAME NIGHT</span>
         <h1>Play<span>Verse</span></h1>
-        <p>Three polished games. One room. Live voice. Meme reactions.</p>
+        <p>Three polished games. One room. Live voice. Premium classic gameplay.</p>
       </div>
       <div class="landing-grid">
         <div class="join-card glass">
@@ -66,12 +66,21 @@
               <div class="snakes-layout">
                 <div class="board-frame"><div id="snakesBoard" class="snakes-board"><div id="boardCells" class="board-cells"></div><svg id="pathsLayer" class="paths-layer" viewBox="0 0 1000 1000" aria-hidden="true"></svg><div id="piecesLayer" class="pieces-layer"></div></div></div>
                 <div class="dice-panel">
-                  <div id="dice" class="dice" aria-label="Dice showing one">
-                    <span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span><span class="pip p7"></span><span class="pip p8"></span><span class="pip p9"></span>
+                  <div class="dice-stage" aria-hidden="true"><span class="dice-shadow"></span>
+                    <div id="dice" class="dice-cube show-1" aria-label="Dice showing one">
+                      <div class="dice-inner">
+                        <div class="die-face face-1"><i class="dot mc"></i></div>
+                        <div class="die-face face-2"><i class="dot tl"></i><i class="dot br"></i></div>
+                        <div class="die-face face-3"><i class="dot tl"></i><i class="dot mc"></i><i class="dot br"></i></div>
+                        <div class="die-face face-4"><i class="dot tl"></i><i class="dot tr"></i><i class="dot bl"></i><i class="dot br"></i></div>
+                        <div class="die-face face-5"><i class="dot tl"></i><i class="dot tr"></i><i class="dot mc"></i><i class="dot bl"></i><i class="dot br"></i></div>
+                        <div class="die-face face-6"><i class="dot tl"></i><i class="dot tr"></i><i class="dot ml"></i><i class="dot mr"></i><i class="dot bl"></i><i class="dot br"></i></div>
+                      </div>
+                    </div>
                   </div>
-                  <button id="rollBtn" class="roll-btn" disabled type="button">ROLL DICE</button>
+                  <button id="rollBtn" class="roll-btn" disabled type="button"><span>ROLL DICE</span><small>Tap when it is your turn</small></button>
                   <button id="startSnakesBtn" class="small-action hidden" type="button">START GAME</button>
-                  <b id="turnText">Waiting for players</b>
+                  <div class="turn-card"><span>CURRENT TURN</span><b id="turnText">Waiting for players</b></div>
                   <small id="lastMoveText">Create or join a room to play.</small>
                 </div>
               </div>

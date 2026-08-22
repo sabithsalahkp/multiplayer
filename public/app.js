@@ -89,31 +89,76 @@ function buildBoard(){
 }
 function svgEl(name,attrs={}){const el=document.createElementNS('http://www.w3.org/2000/svg',name);for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);return el}
 function drawPaths(){
-  pathsLayer.innerHTML='';const defs=svgEl('defs');const g1=svgEl('linearGradient',{id:'snakeGradient',x1:'0',y1:'0',x2:'1',y2:'1'});[['0%','#82ef58'],['42%','#279746'],['100%','#0b5d38']].forEach(([o,c])=>g1.appendChild(svgEl('stop',{offset:o,'stop-color':c})));const g2=svgEl('radialGradient',{id:'snakeHeadGradient'});[['0%','#b9ff75'],['55%','#49aa44'],['100%','#1f6d36']].forEach(([o,c])=>g2.appendChild(svgEl('stop',{offset:o,'stop-color':c})));defs.append(g1,g2);pathsLayer.appendChild(defs);
-  Object.entries(jumps).forEach(([a,b])=>{const from=Number(a),to=Number(b),A=cellCenter(from),B=cellCenter(to);A.x*=10;A.y*=10;B.x*=10;B.y*=10;if(to>from)drawLadder(A,B);else drawSnake(A,B,from)});
+  pathsLayer.innerHTML='';
+  const defs=svgEl('defs');
+  const shadow=svgEl('filter',{id:'softShadow',x:'-30%',y:'-30%',width:'160%',height:'160%'});
+  shadow.appendChild(svgEl('feDropShadow',{dx:'0',dy:'7',stdDeviation:'5','flood-color':'#1b1208','flood-opacity':'.34'}));
+  defs.appendChild(shadow);pathsLayer.appendChild(defs);
+  Object.entries(jumps).forEach(([a,b])=>{const from=Number(a),to=Number(b),A=cellCenter(from),B=cellCenter(to);A.x*=10;A.y*=10;B.x*=10;B.y*=10;if(to>from)drawLadder(A,B,from);else drawSnake(A,B,from)});
 }
-function drawLadder(A,B){const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy),nx=-dy/len*16,ny=dx/len*16;pathsLayer.append(svgEl('line',{x1:A.x+nx,y1:A.y+ny,x2:B.x+nx,y2:B.y+ny,class:'ladder-rail'}),svgEl('line',{x1:A.x-nx,y1:A.y-ny,x2:B.x-nx,y2:B.y-ny,class:'ladder-rail'}));const steps=Math.max(4,Math.floor(len/65));for(let i=1;i<steps;i++){const t=i/steps,x=A.x+dx*t,y=A.y+dy*t;pathsLayer.appendChild(svgEl('line',{x1:x+nx,y1:y+ny,x2:x-nx,y2:y-ny,class:'ladder-rung'}))}}
-function drawSnake(A,B,seed){const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy),px=-dy/len,py=dx/len,w=70+seed%30;const c1={x:A.x+dx*.28+px*w,y:A.y+dy*.28+py*w},c2={x:A.x+dx*.67-px*w,y:A.y+dy*.67-py*w};const d=`M ${A.x} ${A.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${B.x} ${B.y}`;pathsLayer.append(svgEl('path',{d,class:'snake-body-under'}),svgEl('path',{d,class:'snake-body'}));for(let t=.18;t<.95;t+=.14){const x=A.x+(B.x-A.x)*t+Math.sin(t*12+seed)*24*px,y=A.y+(B.y-A.y)*t+Math.sin(t*12+seed)*24*py;pathsLayer.appendChild(svgEl('circle',{cx:x,cy:y,r:6,class:'snake-scale'}))}
-  const angle=Math.atan2(c1.y-A.y,c1.x-A.x)*180/Math.PI+180,head=svgEl('g',{transform:`translate(${A.x} ${A.y}) rotate(${angle})`});head.append(svgEl('ellipse',{cx:0,cy:0,rx:35,ry:27,class:'snake-head'}),svgEl('circle',{cx:13,cy:-10,r:7,class:'snake-eye'}),svgEl('circle',{cx:13,cy:10,r:7,class:'snake-eye'}),svgEl('circle',{cx:16,cy:-10,r:3,class:'snake-pupil'}),svgEl('circle',{cx:16,cy:10,r:3,class:'snake-pupil'}),svgEl('line',{x1:31,y1:0,x2:54,y2:0,class:'snake-tongue'}),svgEl('line',{x1:53,y1:0,x2:66,y2:-9,class:'snake-tongue'}),svgEl('line',{x1:53,y1:0,x2:66,y2:9,class:'snake-tongue'}));pathsLayer.appendChild(head)
+function drawLadder(A,B,seed){
+  const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy),nx=-dy/len*18,ny=dx/len*18;
+  const g=svgEl('g',{class:'ladder-group',filter:'url(#softShadow)'});
+  g.append(svgEl('line',{x1:A.x+nx+3,y1:A.y+ny+5,x2:B.x+nx+3,y2:B.y+ny+5,class:'ladder-shadow'}),svgEl('line',{x1:A.x-nx+3,y1:A.y-ny+5,x2:B.x-nx+3,y2:B.y-ny+5,class:'ladder-shadow'}));
+  g.append(svgEl('line',{x1:A.x+nx,y1:A.y+ny,x2:B.x+nx,y2:B.y+ny,class:'ladder-rail'}),svgEl('line',{x1:A.x-nx,y1:A.y-ny,x2:B.x-nx,y2:B.y-ny,class:'ladder-rail'}));
+  g.append(svgEl('line',{x1:A.x+nx-3,y1:A.y+ny-2,x2:B.x+nx-3,y2:B.y+ny-2,class:'ladder-highlight'}),svgEl('line',{x1:A.x-nx-3,y1:A.y-ny-2,x2:B.x-nx-3,y2:B.y-ny-2,class:'ladder-highlight'}));
+  const steps=Math.max(5,Math.floor(len/58));
+  for(let i=1;i<steps;i++){const t=i/steps,x=A.x+dx*t,y=A.y+dy*t;g.append(svgEl('line',{x1:x+nx,y1:y+ny,x2:x-nx,y2:y-ny,class:'ladder-rung'}),svgEl('line',{x1:x+nx-1,y1:y+ny-2,x2:x-nx-1,y2:y-ny-2,class:'ladder-rung-hi'}))}
+  pathsLayer.appendChild(g);
+}
+function drawSnake(A,B,seed){
+  const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy),px=-dy/len,py=dx/len;
+  const sway=62+(seed%4)*11;
+  const c1={x:A.x+dx*.24+px*sway,y:A.y+dy*.24+py*sway};
+  const c2={x:A.x+dx*.62-px*sway*.82,y:A.y+dy*.62-py*sway*.82};
+  const d=`M ${A.x} ${A.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${B.x} ${B.y}`;
+  const palettes=[['#73d13d','#237d39','#103f2a'],['#ff785c','#c93c3c','#69222c'],['#916cff','#5536aa','#2b205f'],['#f6c84a','#b97921','#5d3816']];
+  const pal=palettes[seed%palettes.length],id=`snakeGrad${seed}`;
+  const defs=pathsLayer.querySelector('defs'),grad=svgEl('linearGradient',{id,x1:'0',y1:'0',x2:'1',y2:'1'});
+  [['0%',pal[0]],['48%',pal[1]],['100%',pal[2]]].forEach(([o,c])=>grad.appendChild(svgEl('stop',{offset:o,'stop-color':c})));defs.appendChild(grad);
+  const g=svgEl('g',{class:`snake-group snake-style-${seed%4}`,filter:'url(#softShadow)'});
+  g.append(svgEl('path',{d,class:'snake-body-under'}),svgEl('path',{d,class:'snake-body',stroke:`url(#${id})`}),svgEl('path',{d,class:'snake-belly'}),svgEl('path',{d,class:'snake-scales'}));
+  g.appendChild(svgEl('circle',{cx:B.x,cy:B.y,r:10,fill:pal[2],class:'snake-tail'}));
+  const angle=Math.atan2(A.y-c1.y,A.x-c1.x)*180/Math.PI;
+  const head=svgEl('g',{class:'snake-head-group',transform:`translate(${A.x} ${A.y}) rotate(${angle})`});
+  head.append(svgEl('ellipse',{cx:0,cy:0,rx:38,ry:29,class:'snake-head',fill:pal[0]}),svgEl('ellipse',{cx:11,cy:0,rx:23,ry:20,class:'snake-snout',fill:pal[1]}));
+  head.append(svgEl('circle',{cx:12,cy:-13,r:8,class:'snake-eye'}),svgEl('circle',{cx:12,cy:13,r:8,class:'snake-eye'}),svgEl('circle',{cx:16,cy:-13,r:3.5,class:'snake-pupil'}),svgEl('circle',{cx:16,cy:13,r:3.5,class:'snake-pupil'}));
+  head.append(svgEl('circle',{cx:28,cy:-6,r:2.2,class:'snake-nostril'}),svgEl('circle',{cx:28,cy:6,r:2.2,class:'snake-nostril'}));
+  head.append(svgEl('path',{d:'M 28 0 Q 38 0 47 0',class:'snake-tongue'}),svgEl('path',{d:'M 45 0 L 60 -8 M 45 0 L 60 8',class:'snake-tongue fork'}));
+  g.appendChild(head);pathsLayer.appendChild(g);
 }
 buildBoard();
 function ensurePieces(){
   if(!roomState)return;for(const p of roomState.players){let el=piecesLayer.querySelector(`[data-player="${CSS.escape(p.id)}"]`);if(!el){el=document.createElement('div');el.className='piece';el.dataset.player=p.id;el.style.setProperty('--piece',colors[p.colorIndex%colors.length]);el.innerHTML='<i class="head"></i><i class="neck"></i><i class="body"></i><i class="base"></i>';piecesLayer.appendChild(el)}}for(const el of [...piecesLayer.children])if(!roomState.players.some(p=>p.id===el.dataset.player))el.remove();
 }
 function layoutPieces(){
-  if(!roomState)return;ensurePieces();const groups=new Map();roomState.players.forEach(p=>{const pos=visualPositions.get(p.id)??p.position??1;if(!groups.has(pos))groups.set(pos,[]);groups.get(pos).push(p)});const offsets=[[0,0],[-2.1,-1.25],[2.1,-1.25],[-2.1,1.35],[2.1,1.35],[0,2.2]];for(const[pos,players]of groups){const c=cellCenter(Number(pos));players.forEach((p,i)=>{const el=piecesLayer.querySelector(`[data-player="${CSS.escape(p.id)}"]`),o=offsets[i]||[0,0];if(el){el.style.left=(c.x+o[0])+'%';el.style.top=(c.y+o[1])+'%';el.style.zIndex=String(20+i)}})}
+  if(!roomState)return;ensurePieces();const groups=new Map();roomState.players.forEach(p=>{const pos=visualPositions.get(p.id)??p.position??1;if(!groups.has(pos))groups.set(pos,[]);groups.get(pos).push(p)});
+  const offsets=[[0,0],[-2.0,-1.15],[2.0,-1.15],[-2.0,1.2],[2.0,1.2],[0,2.0]],currentId=roomState.players[roomState.snakes?.turnIndex]?.id;
+  for(const[pos,players]of groups){const c=cellCenter(Number(pos));players.forEach((p,i)=>{const el=piecesLayer.querySelector(`[data-player="${CSS.escape(p.id)}"]`),o=offsets[i]||[0,0];if(el){el.style.left=(c.x+o[0])+'%';el.style.top=(c.y+o[1])+'%';el.style.zIndex=String(20+i);el.classList.toggle('current',roomState.activeGame==='snakes'&&roomState.snakes?.status==='playing'&&p.id===currentId)}})}
 }
 function setDiceFace(n){n=Math.max(1,Math.min(6,Number(n)||1));for(let i=1;i<=6;i++)dice.classList.remove(`show-${i}`);dice.classList.add(`show-${n}`);dice.setAttribute('aria-label',`Dice showing ${n}`)}
-setDiceFace(1);
-socket.on('snakes:dice-roll',({roll,duration=1050})=>{ensureAudio();sfx('dice');dice.classList.add('rolling');let count=0;const spin=setInterval(()=>{setDiceFace(1+Math.floor(Math.random()*6));if(++count>13)clearInterval(spin)},70);setTimeout(()=>{clearInterval(spin);setDiceFace(roll);dice.classList.remove('rolling')},duration)});
-function renderSnakes(){if(!roomState)return;layoutPieces();const s=roomState.snakes;snakesStatus.textContent=s.status==='playing'?(s.rolling?'ROLLING':'LIVE'):s.status==='won'?'FINISHED':'LOBBY';const current=roomState.players[s.turnIndex],meTurn=s.status==='playing'&&!s.rolling&&current?.id===socket.id;rollBtn.disabled=!meTurn||animatingMove;turnText.textContent=s.status==='won'?'Round complete':s.status==='playing'?(s.rolling?'Dice is rolling…':meTurn?'Your turn':`${current?.name||'Player'}'s turn`):'Waiting to start';startSnakesBtn.classList.toggle('hidden',!(s.status==='lobby'&&roomState.hostId===socket.id));startSnakesBtn.disabled=roomState.players.length<(roomState.settings?.minPlayers||2);if(s.lastRoll&&!s.rolling)setDiceFace(s.lastRoll);const m=s.lastMove;if(m){const p=roomState.players.find(x=>x.id===m.playerId);lastMoveText.textContent=m.blocked?`${p?.name||'Player'} rolled ${m.roll} — exact roll needed.`:m.special?`${p?.name||'Player'} rolled ${m.roll} · ${m.special.type==='snake'?'snake slide':'ladder climb'}!`:`${p?.name||'Player'} rolled ${m.roll}.`}}
+socket.on('snakes:dice-roll',({roll,duration=1100})=>{ensureAudio();sfx('dice');dice.classList.remove('landed');dice.classList.add('rolling');setTimeout(()=>{setDiceFace(roll);dice.classList.remove('rolling');dice.classList.add('landed');setTimeout(()=>dice.classList.remove('landed'),340)},duration)});
+socket.on('snakes:turn-ready',({playerId})=>{if(playerId===socket.id){ensureAudio();sfx('turn')}});
+function renderSnakes(){
+  if(!roomState)return;layoutPieces();const s=roomState.snakes,phase=s.phase||(s.rolling?'rolling':'idle');
+  const current=roomState.players[s.turnIndex],meTurn=s.status==='playing'&&phase==='idle'&&current?.id===socket.id;
+  snakesStatus.textContent=s.status==='won'?'FINISHED':s.status==='playing'?(phase==='rolling'?'ROLLING':phase==='moving'?'MOVING':'LIVE'):'LOBBY';
+  rollBtn.disabled=!meTurn||animatingMove;rollBtn.classList.toggle('ready',meTurn&&!animatingMove);
+  const label=rollBtn.querySelector('span'),hint=rollBtn.querySelector('small');
+  if(label)label.textContent=meTurn?'ROLL DICE':phase==='rolling'?'DICE ROLLING':phase==='moving'?'MOVE IN PROGRESS':'WAIT FOR TURN';
+  if(hint)hint.textContent=meTurn?'Tap to roll your dice':phase==='moving'?'Next roll unlocks after the pawn stops':`${current?.name||'Player'} is playing`;
+  turnText.textContent=s.status==='won'?'Round complete':s.status==='playing'?(phase==='rolling'?`${current?.name||'Player'} is rolling…`:phase==='moving'?`${current?.name||'Player'} is moving…`:meTurn?'Your turn — roll now':`${current?.name||'Player'}'s turn`):'Waiting to start';
+  startSnakesBtn.classList.toggle('hidden',!(s.status==='lobby'&&roomState.hostId===socket.id));startSnakesBtn.disabled=roomState.players.length<(roomState.settings?.minPlayers||2);
+  if(s.lastRoll&&phase!=='rolling')setDiceFace(s.lastRoll);
+  const m=s.lastMove;if(m){const p=roomState.players.find(x=>x.id===m.playerId);lastMoveText.textContent=m.blocked?`${p?.name||'Player'} rolled ${m.roll} — exact roll needed.`:m.special?`${p?.name||'Player'} rolled ${m.roll} · ${m.special.type==='snake'?'snake slide':'ladder climb'}!`:`${p?.name||'Player'} rolled ${m.roll}.`}
+}
 startSnakesBtn.addEventListener('click',async()=>{ensureAudio();const r=await ackEmit('snakes:start');if(!r.ok)toast(r.error||'Could not start')});rollBtn.addEventListener('click',async()=>{ensureAudio();if(animatingMove)return;rollBtn.disabled=true;const r=await ackEmit('snakes:roll');if(!r.ok){toast(r.error||'Could not roll');renderSnakes()}});
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 async function animateSnakesMove(m,state){
   animatingMove=true;const p=state.players.find(x=>x.id===m.playerId),el=piecesLayer.querySelector(`[data-player="${CSS.escape(m.playerId)}"]`);if(!p){animatingMove=false;return}visualPositions.set(p.id,m.from);layoutPieces();
   if(m.blocked){sfx('wrong');await sleep(350)}else{
-    for(let pos=m.from+1;pos<=m.raw;pos++){visualPositions.set(p.id,pos);layoutPieces();if(el){el.classList.remove('jump');void el.offsetWidth;el.classList.add('jump')}sfx('jump');await sleep(285)}
-    if(m.special){sfx(m.special.type);const from=cellCenter(m.special.from),to=cellCenter(m.special.to);if(el){const anim=el.animate([{left:from.x+'%',top:from.y+'%',transform:'translate(-50%,-82%) scale(1)'},{left:((from.x+to.x)/2)+'%',top:((from.y+to.y)/2-2)+'%',transform:'translate(-50%,-96%) scale(1.08)'},{left:to.x+'%',top:to.y+'%',transform:'translate(-50%,-82%) scale(1)'}],{duration:m.special.type==='ladder'?900:1150,easing:m.special.type==='ladder'?'steps(7,end)':'cubic-bezier(.22,.7,.2,1)'});await anim.finished.catch(()=>{})}else await sleep(900);visualPositions.set(p.id,m.special.to);layoutPieces()}
+    for(let pos=m.from+1;pos<=m.raw;pos++){visualPositions.set(p.id,pos);layoutPieces();if(el){el.classList.remove('jump');void el.offsetWidth;el.classList.add('jump')}sfx('jump');await sleep(300)}
+    if(m.special){sfx(m.special.type);const from=cellCenter(m.special.from),to=cellCenter(m.special.to);if(el){const anim=el.animate([{left:from.x+'%',top:from.y+'%',transform:'translate(-50%,-82%) scale(1)'},{left:((from.x+to.x)/2)+'%',top:((from.y+to.y)/2-2)+'%',transform:'translate(-50%,-96%) scale(1.08)'},{left:to.x+'%',top:to.y+'%',transform:'translate(-50%,-82%) scale(1)'}],{duration:m.special.type==='ladder'?1050:1320,easing:m.special.type==='ladder'?'steps(7,end)':'cubic-bezier(.22,.7,.2,1)'});await anim.finished.catch(()=>{})}else await sleep(m.special.type==='ladder'?1050:1320);visualPositions.set(p.id,m.special.to);layoutPieces()}
   }
   visualPositions.set(p.id,m.to);layoutPieces();animatingMove=false;renderSnakes();if(pendingSnakeWinner&&pendingSnakeWinner.moveId===m.id){const d=pendingSnakeWinner;pendingSnakeWinner=null;await sleep(260);showWinner(state.players.find(x=>x.id===d.winnerId)?.name||'Player','Snakes & Ladders')}
 }

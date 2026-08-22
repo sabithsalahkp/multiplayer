@@ -83,7 +83,7 @@ function makeWordSearch(seed = crypto.randomInt(1, 2**30)){
 function initRoom(c, host){
   return {
     code:c, hostId:host.id, activeGame:'snakes', players:[host],
-    snakes:{status:'lobby',turnIndex:0,winnerId:null,lastRoll:null,lastMove:null,moveSeq:0,rolling:false},
+    snakes:{status:'lobby',turnIndex:0,winnerId:null,lastRoll:null,lastMove:null,moveSeq:0,rolling:false,phase:'idle',turnReadyAt:0},
     ttt:{status:'ready',board:Array(9).fill(null),turnIndex:0,winnerId:null,round:1},
     wordsearch:makeWordSearch(), createdAt:Date.now()
   };
@@ -127,7 +127,7 @@ function samePath(a,b){ return a.length===b.length&&a.every((v,i)=>v===b[i]); }
 
 app.use(express.json({limit:'1mb'}));
 app.use(express.static(PUBLIC_DIR));
-app.get('/health',(_q,res)=>res.json({ok:true,version:'5.0.0'}));
+app.get('/health',(_q,res)=>res.json({ok:true,version:'6.0.0'}));
 app.get('/config',(_q,res)=>res.json({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],settings:publicSettings()}));
 app.get('/api/stickers',(_q,res)=>res.json({ok:true,stickers:publicStickers()}));
 app.get('/admin',(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'admin.html')));
@@ -173,20 +173,54 @@ io.on('connection',socket=>{
   socket.on('snakes:start',(_,ack=()=>{})=>{
     const r=roomOf(socket); if(!r)return ack({ok:false}); if(r.hostId!==socket.id)return ack({ok:false,error:'Host only.'});
     if(r.players.length<settings.minPlayers)return ack({ok:false,error:`Need ${settings.minPlayers} players.`});
-    r.players.forEach(p=>p.position=1); r.snakes={status:'playing',turnIndex:0,winnerId:null,lastRoll:null,lastMove:null,moveSeq:r.snakes.moveSeq+1,rolling:false}; emitRoom(r); ack({ok:true});
+    r.players.forEach(p=>p.position=1); r.snakes={status:'playing',turnIndex:0,winnerId:null,lastRoll:null,lastMove:null,moveSeq:r.snakes.moveSeq+1,rolling:false,phase:'idle',turnReadyAt:Date.now()}; emitRoom(r); ack({ok:true});
   });
   socket.on('snakes:roll',(_,ack=()=>{})=>{
-    const r=roomOf(socket); if(!r||r.snakes.status!=='playing')return ack({ok:false,error:'Game not running.'}); if(r.snakes.rolling)return ack({ok:false,error:'Dice is rolling.'});
-    const idx=r.players.findIndex(p=>p.id===socket.id); if(idx!==r.snakes.turnIndex)return ack({ok:false,error:'Not your turn.'});
-    const roll=crypto.randomInt(1,7), p=r.players[idx], from=p.position; r.snakes.rolling=true; emitRoom(r); io.to(r.code).emit('snakes:dice-roll',{playerId:p.id,roll,duration:1050}); ack({ok:true,roll});
+    const r=roomOf(socket);
+    if(!r||r.snakes.status!=='playing') return ack({ok:false,error:'Game not running.'});
+    if((r.snakes.phase||'idle')!=='idle') return ack({ok:false,error:'Wait for the current move to finish.'});
+    const idx=r.players.findIndex(p=>p.id===socket.id);
+    if(idx!==r.snakes.turnIndex) return ack({ok:false,error:'Not your turn.'});
+
+    const roll=crypto.randomInt(1,7), p=r.players[idx], from=p.position;
+    r.snakes.rolling=true; r.snakes.phase='rolling'; r.snakes.turnReadyAt=0;
+    emitRoom(r);
+    io.to(r.code).emit('snakes:dice-roll',{playerId:p.id,roll,duration:1100});
+    ack({ok:true,roll});
+
     setTimeout(()=>{
-      const live=rooms.get(r.code); if(!live||live!==r||!r.players.find(x=>x.id===p.id))return;
-      let raw=from+roll,blocked=false;if(raw>100){if(settings.exactRollToWin){raw=from;blocked=true}else raw=100;}
-      let to=raw,special=null;if(!blocked&&jumps[to]){const dest=jumps[to];special={type:dest>to?'ladder':'snake',from:to,to:dest};to=dest;}
-      p.position=to;r.snakes.lastRoll=roll;r.snakes.moveSeq++;r.snakes.lastMove={id:r.snakes.moveSeq,playerId:p.id,roll,from,to,raw,special,blocked};r.snakes.rolling=false;
-      if(to===100){r.snakes.status='won';r.snakes.winnerId=p.id;}else if(!(settings.extraTurnOnSix&&roll===6))r.snakes.turnIndex=(r.snakes.turnIndex+1)%r.players.length;
-      emitRoom(r);if(to===100)io.to(r.code).emit('game:win',{game:'snakes',winnerId:p.id,moveId:r.snakes.moveSeq});
-    },1080);
+      const live=rooms.get(r.code);
+      if(!live||live!==r||!r.players.find(x=>x.id===p.id)) return;
+      let raw=from+roll,blocked=false;
+      if(raw>100){ if(settings.exactRollToWin){raw=from;blocked=true}else raw=100; }
+      let to=raw,special=null;
+      if(!blocked&&jumps[to]){const dest=jumps[to];special={type:dest>to?'ladder':'snake',from:to,to:dest};to=dest;}
+
+      const steps=blocked?0:Math.max(0,raw-from);
+      const specialMs=special?(special.type==='ladder'?1050:1320):0;
+      const animationMs=blocked?520:(steps*300+specialMs+260);
+      p.position=to;
+      r.snakes.lastRoll=roll; r.snakes.moveSeq++; r.snakes.rolling=false; r.snakes.phase='moving';
+      r.snakes.turnReadyAt=Date.now()+animationMs;
+      r.snakes.lastMove={id:r.snakes.moveSeq,playerId:p.id,roll,from,to,raw,special,blocked,animationMs};
+      emitRoom(r);
+
+      const moveId=r.snakes.moveSeq;
+      setTimeout(()=>{
+        const still=rooms.get(r.code);
+        if(!still||still!==r||r.snakes.lastMove?.id!==moveId) return;
+        if(to===100){
+          r.snakes.status='won'; r.snakes.winnerId=p.id; r.snakes.phase='finished'; r.snakes.turnReadyAt=0;
+          emitRoom(r);
+          io.to(r.code).emit('game:win',{game:'snakes',winnerId:p.id,moveId});
+          return;
+        }
+        if(!(settings.extraTurnOnSix&&roll===6)) r.snakes.turnIndex=(r.snakes.turnIndex+1)%r.players.length;
+        r.snakes.phase='idle'; r.snakes.turnReadyAt=Date.now();
+        emitRoom(r);
+        io.to(r.code).emit('snakes:turn-ready',{playerId:r.players[r.snakes.turnIndex]?.id||null});
+      },animationMs);
+    },1120);
   });
 
   socket.on('ttt:move',(payload={},ack=()=>{})=>{

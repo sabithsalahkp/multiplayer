@@ -1,25 +1,10 @@
-PLAYVERSE V5 — MANUAL STEPS
+PLAYVERSE V6 - MANUAL STEPS
 
-FIRST DEPLOY
 1. Extract this ZIP.
-2. Upload ALL files/folders to the ROOT of your GitHub repo.
-3. Render -> New -> Blueprint -> choose the repo.
-4. Deploy and wait until it says Live.
-5. Open /health. It should show: {"ok":true,"version":"5.0.0"}
+2. Replace your old GitHub project files with everything from this ZIP.
+3. Commit changes.
+4. Wait for Render to redeploy and show Live.
+5. Open /health and confirm version 6.0.0.
 
-UPDATING AN OLD VERSION
-1. Replace the old repo files with everything from this ZIP.
-2. Commit the changes.
-3. Render redeploys automatically.
-
-NO EXTRA SETUP
-- No database
-- No admin password
-- No environment variable
-- No persistent disk
-
-PERMANENT SETTINGS
-Edit data/settings.json in GitHub.
-
-MEME STICKERS
-Edit data/stickers.json in GitHub.
+Nothing else is required.
+NO database. NO admin password. NO environment variable. NO persistent disk.
