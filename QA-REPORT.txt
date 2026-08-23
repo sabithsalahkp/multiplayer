@@ -1,26 +1,24 @@
-PLAYVERSE V9 QA REPORT
+PLAYVERSE V10 QA REPORT
 
-Automated checks completed before packaging:
+Checks completed before packaging:
 
-PASS — 40 frontend render cycles across 360×800, 390×844, 412×915 and 1024×900.
-PASS — no JavaScript page errors in those 40 cycles.
-PASS — no horizontal page overflow in those 40 cycles.
-PASS — Snakes & Ladders renders 100 cells, 8 snakes and 8 ladders.
-PASS — public room browser renders a host name and join action without exposing a room code.
-PASS — mobile room browser has no horizontal scrolling.
-PASS — server room flow: create -> live public listing -> join by room id -> player count update -> leave update.
-PASS — opponent cannot roll during dice animation.
-PASS — opponent cannot roll during pawn/snake/ladder movement.
-PASS — opponent roll unlocks after the full previous move finishes.
-PASS — Word Search schedules a server-controlled 60-second turn timer.
-PASS — Word Search timer is visually above the playable grid.
-PASS — Word Search initial timer displays 01:00, not 00:60.
-PASS — Word Search grid renders 100 cells and has no mobile horizontal overflow.
-PASS — Tic Tac Toe renders 9 equal-size cells; X/O content does not resize the board.
-PASS — PWA manifest parses successfully.
-PASS — service-worker.js passes JavaScript syntax validation.
-PASS — 192px, 512px and Apple touch icons are present.
-PASS — app.js and server.js pass Node JavaScript syntax validation.
-PASS — all app.js element IDs exist in index.html and there are no duplicate HTML IDs.
+PASS — server.js, public/app.js, public/admin.js and public/service-worker.js pass JavaScript syntax validation.
+PASS — package.json, manifest.webmanifest and stickers.json parse correctly.
+PASS — all JavaScript $() element references exist in index.html.
+PASS — 32 enabled reaction entries are available (8 existing meme entries + 24 new emoji reactions).
+PASS — live chat client flow renders and sends a room message in browser QA simulation.
+PASS — live chat server handler is room-scoped, rate-limited and keeps the latest 80 messages in memory.
+PASS — microphone UI reaches MIC LIVE with a mocked browser media stream in browser QA simulation.
+PASS — WebRTC code includes deterministic peer negotiation, queued ICE candidates, ICE restart, peer resync, sender track replacement and reconnect handling.
+PASS — reconnect flow preserves a disconnected player for 15 seconds and reclaims the seat with a session player key.
+PASS — desktop browser QA at 1280x900: 32 stickers rendered, chat rendered, no horizontal overflow, no page errors.
+PASS — mobile browser QA at 390x844: 32 stickers rendered, chat rendered, no horizontal overflow, no page errors.
+PASS — cache changed to playverse-v10-shell-20260823 and main app/style assets use v=10.0.0 plus no-store/update checks.
 
-Version: 9.0.0
+Environment limitation:
+The sandbox cannot reach registry.npmjs.org, so Express/Socket.IO dependencies could not be installed here and the real Node server could not be launched end-to-end in this environment. The JavaScript/server source was syntax-checked, and the frontend was browser-tested with local API/Socket.IO simulation.
+
+Production voice note:
+STUN-only voice is included by default. For reliable voice on strict mobile/carrier NATs, configure TURN_URLS, TURN_USERNAME and TURN_CREDENTIAL on the deployed server.
+
+Version: 10.0.0

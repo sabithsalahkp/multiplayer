@@ -1,28 +1,24 @@
-PLAYVERSE V9 — MANUAL STEPS
+PLAYVERSE V10 — DEPLOY STEPS
 
 1. Extract this ZIP.
 2. Replace the old files in your GitHub repository with everything from this folder.
-3. Commit/push.
-4. Render auto-deploys. Wait until it says Live.
-5. Open your Render URL.
+3. Commit and push.
+4. Let Render redeploy.
+5. Open /health and confirm version 10.0.0.
+6. Open the site once, then refresh once. V10 uses a new service-worker cache and no-store app files, so the old build should be cleared automatically.
 
-THAT IS ALL.
+NEW IN V10
+- Live room text chat while playing.
+- 32 reactions/stickers.
+- Stronger live voice/WebRTC negotiation and reconnect recovery.
+- 15-second room-seat recovery after a short connection drop.
+- V10 cache reset.
 
-No room code.
-No password.
-No database.
-No environment variables.
-No persistent disk.
+VOICE
+Basic voice works with the included Google STUN servers and requires HTTPS in production.
+For the most reliable voice across mobile networks / strict NAT, add these optional Render environment variables from a TURN provider:
+- TURN_URLS
+- TURN_USERNAME
+- TURN_CREDENTIAL
 
-HOW TO PLAY WITH A FRIEND
-- You open the site, enter your name, tap Create Room.
-- Your friend opens the same site, enters their name, sees your name under Available rooms, and taps it.
-- They join immediately.
-
-INSTALL
-- On supported Chrome, use the Install Game button when it appears.
-- You can also use Chrome's Install app / Add to Home screen option.
-
-CHECK DEPLOYMENT
-Open: /health
-Expected version: 9.0.0
+No database is required. Chat history is in memory and resets if the server restarts.

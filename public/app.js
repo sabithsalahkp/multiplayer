@@ -2,6 +2,9 @@ const socket = io({ transports:['websocket','polling'] });
 const $ = id => document.getElementById(id);
 const colors=['#ff3bbd','#34d9ff','#62ef8e','#ffd15c','#9a70ff','#ff735d'];
 const gameViews={snakes:$('snakesView'),tictactoe:$('tttView'),wordsearch:$('wordView')};
+const playerKey=(()=>{try{let k=sessionStorage.getItem('playverse-player-key');if(!k){k=(crypto.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36));sessionStorage.setItem('playverse-player-key',k)}return k}catch{return Math.random().toString(36).slice(2)+Date.now().toString(36)}})();
+let iceServers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],hasTurn=false;
+let wasDisconnected=false,intentionalLeave=false,rejoining=false;
 let roomState=null, stickerList=[], appSettings={minPlayers:2,maxPlayers:6,exactRollToWin:true,extraTurnOnSix:false,stickerPopupMs:3000,stickerCooldownMs:900,soundDefaultOn:true};
 let lastSnakesMove=0, animatingMove=false, visualPositions=new Map(), pendingSnakeWinner=null, wordSelectionStart=null, lastWordTickSecond=null;
 
@@ -76,22 +79,23 @@ async function refreshRooms(){
 async function joinPublicRoom(roomId){
   const name=getPlayerName();if(!name){landingError.textContent='Enter your name first.';nameInput.focus();return}
   landingError.textContent='';
-  const r=await ackEmit('room:join',{name,roomId});
+  const r=await ackEmit('room:join',{name,roomId,playerKey});
   if(!r.ok){landingError.textContent=r.error||'Could not join room.';refreshRooms();return}
-  enterRoom(r.room);
+  enterRoom(r.room,r.messages||[]);
 }
-socket.on('connect',()=>{updateConn(true);refreshRooms()});socket.on('disconnect',()=>{updateConn(false);if(roomState)toast('Connection lost. Reconnecting…')});socket.on('connect_error',()=>updateConn(false));updateConn(socket.connected);
+socket.on('connect',()=>{updateConn(true);refreshRooms();if(roomState&&wasDisconnected&&!intentionalLeave)rejoinCurrentRoom()});socket.on('disconnect',()=>{updateConn(false);wasDisconnected=true;resetPeerConnections();if(roomState)toast('Connection lost. Reconnecting…')});socket.on('connect_error',()=>updateConn(false));updateConn(socket.connected);
 socket.on('lobby:update',d=>{publicRooms=d?.rooms||[];renderLobbyRooms()});
-fetch('/config').then(r=>r.json()).then(d=>{appSettings={...appSettings,...(d.settings||{})};sfxOn=appSettings.soundDefaultOn!==false;renderAudioButtons()}).catch(()=>{});
+fetch('/config',{cache:'no-store'}).then(r=>r.json()).then(d=>{appSettings={...appSettings,...(d.settings||{})};iceServers=d.iceServers||iceServers;hasTurn=!!d.hasTurn;applyIceConfig();sfxOn=appSettings.soundDefaultOn!==false;renderAudioButtons()}).catch(()=>{});
 fetch('/api/stickers').then(r=>r.json()).then(d=>{stickerList=d.stickers||[];renderStickers()}).catch(()=>{});
 socket.on('game:settings',s=>{appSettings={...appSettings,...s};renderPlayers();renderAudioButtons();renderLobbyRooms()});socket.on('stickers:update',s=>{stickerList=s||[];renderStickers()});socket.on('room:notice',msg=>toast(msg));
 
-createBtn.addEventListener('click',async()=>{const name=getPlayerName();if(!name){landingError.textContent='Enter your name.';nameInput.focus();return}landingError.textContent='';const r=await ackEmit('room:create',{name});if(!r.ok)return landingError.textContent=r.error||'Could not create room.';enterRoom(r.room)});
+createBtn.addEventListener('click',async()=>{const name=getPlayerName();if(!name){landingError.textContent='Enter your name.';nameInput.focus();return}landingError.textContent='';const r=await ackEmit('room:create',{name,playerKey});if(!r.ok)return landingError.textContent=r.error||'Could not create room.';enterRoom(r.room,r.messages||[])});
 roomsList.addEventListener('click',e=>{const btn=e.target.closest('.room-card');if(btn&&!btn.disabled)joinPublicRoom(btn.dataset.roomId)});
 roomsRefreshBtn?.addEventListener('click',()=>{roomsRefreshBtn.classList.add('spinning');refreshRooms().finally(()=>setTimeout(()=>roomsRefreshBtn.classList.remove('spinning'),350))});
 nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')createBtn.click()});
-$('leaveBtn').addEventListener('click',()=>{socket.emit('room:leave');roomState=null;location.href='/'});
-function enterRoom(room){roomState=room;landing.classList.add('hidden');gameShell.classList.remove('hidden');visualPositions.clear();room.players.forEach(p=>visualPositions.set(p.id,p.position||1));renderAll();sfx('join');history.replaceState({},'',room.path||'/snakes')}
+$('leaveBtn').addEventListener('click',()=>{intentionalLeave=true;socket.emit('room:leave');stopLocalVoice();roomState=null;location.href='/'});
+function enterRoom(room,messages=[]){roomState=room;intentionalLeave=false;wasDisconnected=false;landing.classList.add('hidden');gameShell.classList.remove('hidden');visualPositions.clear();room.players.forEach(p=>visualPositions.set(p.id,p.position||1));setChatHistory(messages);renderAll();syncRtcPeers();sfx('join');history.replaceState({},'',room.path||'/snakes')}
+async function rejoinCurrentRoom(){if(rejoining||!roomState?.code||!socket.connected)return;rejoining=true;const code=roomState.code,name=getPlayerName()||roomState.players.find(p=>p.id===socket.id)?.name||roomState.players[0]?.name||'Player';try{const r=await ackEmit('room:join',{name,roomId:code,playerKey});if(r.ok){enterRoom(r.room,r.messages||[]);toast('Reconnected to the room.')}else{toast('Could not rejoin the room.');roomState=null;gameShell.classList.add('hidden');landing.classList.remove('hidden');refreshRooms()}}finally{rejoining=false}}
 
 // ---------- INSTALLABLE PWA ----------
 let deferredInstallPrompt=null;
@@ -106,7 +110,7 @@ async function promptInstall(){
 }
 installButtons.forEach(b=>b.addEventListener('click',promptInstall));
 window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;showInstallButtons(false);toast('PlayVerse installed')});
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(()=>{}))}
+if('serviceWorker' in navigator){window.addEventListener('load',async()=>{try{const reg=await navigator.serviceWorker.register('/service-worker.js?v=10.0.0',{updateViaCache:'none'});await reg.update()}catch{}})}
 
 socket.on('room:state',state=>{
   const old=roomState;roomState=state;
@@ -122,14 +126,26 @@ function renderAll(){if(!roomState)return;renderPlayers();switchGameView(roomSta
 function renderPlayers(){
   if(!roomState)return;playerCount.textContent=`${roomState.players.length}/${roomState.settings?.maxPlayers||appSettings.maxPlayers}`;playersList.innerHTML='';
   const turnId=roomState.activeGame==='snakes'?roomState.players[roomState.snakes.turnIndex]?.id:roomState.activeGame==='tictactoe'?roomState.players[roomState.ttt.turnIndex]?.id:roomState.players[roomState.wordsearch.turnIndex]?.id;
-  roomState.players.forEach(p=>{const row=document.createElement('div');row.className='player-row'+(p.id===turnId?' active':'');const pawn=document.createElement('span');pawn.className='mini-pawn';pawn.style.setProperty('--piece',colors[p.colorIndex%colors.length]);const meta=document.createElement('div');meta.className='player-meta';const b=document.createElement('b');b.textContent=p.name;const sm=document.createElement('small');sm.textContent=p.id===roomState.hostId?'Host':'Ready';meta.append(b,sm);row.append(pawn,meta);if(p.id===socket.id){const y=document.createElement('span');y.className='you-badge';y.textContent='YOU';row.append(y)}playersList.appendChild(row)})
+  roomState.players.forEach(p=>{const row=document.createElement('div');row.className='player-row'+(p.id===turnId?' active':'')+(p.connected===false?' offline':'');const pawn=document.createElement('span');pawn.className='mini-pawn';pawn.style.setProperty('--piece',colors[p.colorIndex%colors.length]);const meta=document.createElement('div');meta.className='player-meta';const b=document.createElement('b');b.textContent=p.name;const sm=document.createElement('small');const bits=[];if(p.id===roomState.hostId)bits.push('Host');if(p.connected===false)bits.push('Reconnecting');else if(p.voiceOn)bits.push('Voice on');else bits.push('Ready');sm.textContent=bits.join(' · ');meta.append(b,sm);row.append(pawn,meta);if(p.id===socket.id){const y=document.createElement('span');y.className='you-badge';y.textContent='YOU';row.append(y)}playersList.appendChild(row)})
 }
 function switchGameView(game,push){Object.entries(gameViews).forEach(([g,v])=>v.classList.toggle('hidden',g!==game));[...gameNav.querySelectorAll('button')].forEach(b=>b.classList.toggle('active',b.dataset.game===game));activeGameLabel.textContent=displayGameName(game);if(push&&roomState?.path&&location.pathname!==roomState.path)history.pushState({},'',roomState.path)}
 gameNav.addEventListener('click',async e=>{const b=e.target.closest('button[data-game]');if(!b||!roomState)return;if(socket.id!==roomState.hostId)return toast('Only the host can switch games.');const r=await ackEmit('game:select',{game:b.dataset.game});if(!r.ok)toast(r.error||'Could not switch game')});
 
+// ---------- LIVE CHAT ----------
+const chatPanel=$('chatPanel'),chatMessages=$('chatMessages'),chatForm=$('chatForm'),chatInput=$('chatInput'),chatUnread=$('chatUnread');
+let chatItems=[],unreadChat=0;
+function escapeChatTime(at){try{return new Intl.DateTimeFormat([], {hour:'2-digit',minute:'2-digit'}).format(new Date(at))}catch{return ''}}
+function setChatHistory(items=[]){chatItems=Array.isArray(items)?items.slice(-80):[];unreadChat=0;renderChat();updateChatUnread()}
+function renderChat(){if(!chatMessages)return;chatMessages.innerHTML='';if(!chatItems.length){const e=document.createElement('div');e.className='chat-empty';e.textContent='No messages yet. Say hi.';chatMessages.appendChild(e);return}for(const m of chatItems){const row=document.createElement('div');row.className='chat-message'+(m.playerId===socket.id?' mine':'');const top=document.createElement('div');const name=document.createElement('b');name.textContent=m.playerId===socket.id?'You':m.from||'Player';const time=document.createElement('small');time.textContent=escapeChatTime(m.at);top.append(name,time);const text=document.createElement('p');text.textContent=m.text;row.append(top,text);chatMessages.appendChild(row)}chatMessages.scrollTop=chatMessages.scrollHeight}
+function updateChatUnread(){if(!chatUnread)return;chatUnread.textContent=String(Math.min(99,unreadChat));chatUnread.classList.toggle('hidden',unreadChat<1)}
+function chatIsVisible(){if(!chatPanel)return false;const r=chatPanel.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0}
+chatForm?.addEventListener('submit',async e=>{e.preventDefault();const text=chatInput.value.trim();if(!text||!roomState)return;chatInput.disabled=true;const r=await ackEmit('chat:send',{text});chatInput.disabled=false;if(r.ok){chatInput.value='';chatInput.focus()}else toast(r.error||'Could not send message.')});
+socket.on('chat:message',m=>{chatItems.push(m);if(chatItems.length>80)chatItems.shift();if(m.playerId!==socket.id&&!chatIsVisible()){unreadChat++;updateChatUnread();sfx('join')}renderChat()});
+$('chatJumpBtn')?.addEventListener('click',()=>{unreadChat=0;updateChatUnread();chatPanel?.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>chatInput?.focus(),320)});
+
 // ---------- STICKERS ----------
-function renderStickers(){const tray=$('stickerTray');tray.innerHTML='';stickerList.forEach(st=>{const b=document.createElement('button');b.className='sticker-btn';b.type='button';b.title=st.name;const im=document.createElement('img');im.src=st.url;im.alt=st.name;im.loading='lazy';const label=document.createElement('small');label.textContent=st.name;b.append(im,label);b.addEventListener('click',async()=>{ensureAudio();const r=await ackEmit('sticker:send',{id:st.id});if(!r.ok&&r.error!=='Too fast.')toast(r.error||'Could not send')});tray.appendChild(b)})}
-let stickerTimer=null;socket.on('sticker:pop',data=>{const pop=$('stickerPopup');clearTimeout(stickerTimer);pop.querySelector('img').src=data.url;pop.querySelector('b').textContent=data.name;pop.querySelector('small').textContent=`${data.from} reacted`;pop.classList.remove('hidden');sfx('sticker');stickerTimer=setTimeout(()=>pop.classList.add('hidden'),data.ms||3000)});
+function renderStickers(){const tray=$('stickerTray');tray.innerHTML='';stickerList.forEach(st=>{const b=document.createElement('button');b.className='sticker-btn';b.type='button';b.title=st.name;if(st.emoji){const em=document.createElement('span');em.className='sticker-emoji-mini';em.textContent=st.emoji;b.appendChild(em)}else{const im=document.createElement('img');im.src=st.url;im.alt=st.name;im.loading='lazy';b.appendChild(im)}const label=document.createElement('small');label.textContent=st.name;b.append(label);b.addEventListener('click',async()=>{ensureAudio();const r=await ackEmit('sticker:send',{id:st.id});if(!r.ok&&r.error!=='Too fast.')toast(r.error||'Could not send')});tray.appendChild(b)})}
+let stickerTimer=null;socket.on('sticker:pop',data=>{const pop=$('stickerPopup'),im=pop.querySelector('img'),em=pop.querySelector('.sticker-emoji-pop');clearTimeout(stickerTimer);if(data.emoji){em.textContent=data.emoji;em.classList.remove('hidden');im.classList.add('hidden')}else{im.src=data.url;im.classList.remove('hidden');em.classList.add('hidden')}pop.querySelector('b').textContent=data.name;pop.querySelector('small').textContent=`${data.from} reacted`;pop.classList.remove('hidden');sfx('sticker');stickerTimer=setTimeout(()=>pop.classList.add('hidden'),data.ms||3000)});
 
 // ---------- SNAKES & LADDERS ----------
 const jumps={4:14,9:31,20:38,28:84,40:59,51:67,63:81,71:91,17:7,54:34,62:19,64:60,87:24,93:73,95:75,99:78};
@@ -281,16 +297,39 @@ socket.on('game:win',d=>{if(d.game==='snakes'){pendingSnakeWinner=d;if(!animatin
 function showWinner(name,game){$('winnerName').textContent=name;$('winnerGame').textContent=game;$('winnerModal').classList.remove('hidden');sfx('win');confettiBurst(90)}$('winnerCloseBtn').addEventListener('click',()=>$('winnerModal').classList.add('hidden'));
 function confettiBurst(count){const layer=$('confettiLayer'),cols=['#ff3cbd','#6c5cff','#2ddcff','#ffd65c','#5cff92'];for(let i=0;i<count;i++){const d=document.createElement('i');d.className='confetti';d.style.left=Math.random()*100+'%';d.style.background=cols[i%cols.length];d.style.animationDuration=(1.6+Math.random()*2.2)+'s';d.style.animationDelay=(Math.random()*.35)+'s';layer.appendChild(d);setTimeout(()=>d.remove(),4500)}}
 
-// ---------- VOICE CHAT ----------
-const peers=new Map(),remoteAudios=new Map();let localStream=null,micOn=false,iceServers=[{urls:'stun:stun.l.google.com:19302'}];
-fetch('/config').then(r=>r.json()).then(d=>{iceServers=d.iceServers||iceServers}).catch(()=>{});
-function renderAudioButtons(){$('micBtn').classList.toggle('on',micOn);$('micBtn').querySelector('b').textContent=micOn?'MIC ON':'MIC OFF';$('speakerBtn').classList.toggle('on',speakerOn);$('speakerBtn').querySelector('b').textContent=speakerOn?'SPEAKER ON':'SPEAKER OFF';$('soundBtn').classList.toggle('on',sfxOn);$('soundBtn').querySelector('b').textContent=sfxOn?'SFX ON':'SFX OFF'}
+// ---------- LIVE VOICE CHAT ----------
+const peers=new Map(),peerMeta=new Map(),remoteAudios=new Map(),candidateQueues=new Map();
+let localStream=null,micOn=false,voiceToastShown=false;
+function shouldInitiate(id){return !!socket.id&&String(socket.id).localeCompare(String(id))<0}
+function getAudioSender(pc){return pc.getTransceivers().find(t=>t.receiver?.track?.kind==='audio')?.sender||pc.getSenders().find(x=>x.track?.kind==='audio')||null}
+function renderAudioButtons(){const mb=$('micBtn');mb.classList.toggle('on',micOn);mb.querySelector('b').textContent=micOn?'MIC LIVE':'MIC OFF';mb.title=micOn?'Your microphone is live':'Turn on live voice';$('speakerBtn').classList.toggle('on',speakerOn);$('speakerBtn').querySelector('b').textContent=speakerOn?'SPEAKER ON':'SPEAKER OFF';$('soundBtn').classList.toggle('on',sfxOn);$('soundBtn').querySelector('b').textContent=sfxOn?'SFX ON':'SFX OFF'}
+function applyIceConfig(){for(const pc of peers.values())try{pc.setConfiguration({iceServers})}catch{}}
+function resetPeerConnections(){for(const pc of peers.values())try{pc.close()}catch{};peers.clear();peerMeta.clear();candidateQueues.clear();for(const a of remoteAudios.values())a.remove();remoteAudios.clear()}
+function closePeer(id){const pc=peers.get(id);if(pc)try{pc.close()}catch{};peers.delete(id);peerMeta.delete(id);candidateQueues.delete(id);remoteAudios.get(id)?.remove();remoteAudios.delete(id)}
+async function attachLocalTrack(pc){const sender=getAudioSender(pc),track=localStream?.getAudioTracks?.()[0]||null;if(sender)await sender.replaceTrack(track)}
 async function getPeer(id){
-  if(peers.has(id))return peers.get(id);const pc=new RTCPeerConnection({iceServers});peers.set(id,pc);if(localStream)localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));pc.onicecandidate=e=>{if(e.candidate)socket.emit('rtc:signal',{to:id,data:{candidate:e.candidate}})};pc.ontrack=e=>{let a=remoteAudios.get(id);if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;a.muted=!speakerOn;document.body.appendChild(a);remoteAudios.set(id,a)}a.srcObject=e.streams[0]};pc.onconnectionstatechange=()=>{if(['failed','closed','disconnected'].includes(pc.connectionState)){/* allow reconnect */}};return pc;
+  if(!id||id===socket.id)return null;if(peers.has(id))return peers.get(id);
+  const pc=new RTCPeerConnection({iceServers});peers.set(id,pc);peerMeta.set(id,{makingOffer:false,ignoreOffer:false,polite:String(socket.id).localeCompare(String(id))>0,restartTimer:null});candidateQueues.set(id,[]);
+  pc.addTransceiver('audio',{direction:'sendrecv'});await attachLocalTrack(pc);
+  pc.onicecandidate=e=>{if(e.candidate&&socket.connected)socket.emit('rtc:signal',{to:id,data:{candidate:e.candidate}})};
+  pc.ontrack=e=>{let a=remoteAudios.get(id);if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;a.muted=!speakerOn;a.dataset.peerId=id;document.body.appendChild(a);remoteAudios.set(id,a)}a.srcObject=e.streams[0]||new MediaStream([e.track]);a.play().catch(()=>{})};
+  pc.onnegotiationneeded=()=>{if(shouldInitiate(id))negotiatePeer(id)};
+  pc.onconnectionstatechange=()=>{const meta=peerMeta.get(id);if(!meta)return;if(pc.connectionState==='connected'){if(meta.restartTimer){clearTimeout(meta.restartTimer);meta.restartTimer=null}}else if(['failed','disconnected'].includes(pc.connectionState)&&shouldInitiate(id)&&!meta.restartTimer){meta.restartTimer=setTimeout(()=>{meta.restartTimer=null;if(peers.get(id)!==pc)return;try{pc.restartIce()}catch{};negotiatePeer(id,true)},1200)}};
+  return pc;
 }
-async function offerPeer(id){const pc=await getPeer(id);try{const offer=await pc.createOffer();await pc.setLocalDescription(offer);socket.emit('rtc:signal',{to:id,data:{description:pc.localDescription}})}catch{}}
-socket.on('rtc:peers',async({peers:ids})=>{for(const id of ids)await offerPeer(id)});socket.on('rtc:peer-joined',async({peerId})=>{await getPeer(peerId);if(localStream)await offerPeer(peerId)});socket.on('rtc:peer-left',({peerId})=>{peers.get(peerId)?.close();peers.delete(peerId);remoteAudios.get(peerId)?.remove();remoteAudios.delete(peerId)});socket.on('rtc:signal',async({from,data})=>{const pc=await getPeer(from);try{if(data.description){await pc.setRemoteDescription(data.description);if(data.description.type==='offer'){const ans=await pc.createAnswer();await pc.setLocalDescription(ans);socket.emit('rtc:signal',{to:from,data:{description:pc.localDescription}})}}else if(data.candidate)await pc.addIceCandidate(data.candidate)}catch{}});
-$('micBtn').addEventListener('click',async()=>{ensureAudio();if(!micOn){try{localStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});micOn=true;for(const[id,pc]of peers){localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));await offerPeer(id)}}catch{return toast('Microphone permission was not allowed.')}}else{localStream?.getTracks().forEach(t=>t.stop());localStream=null;micOn=false;for(const pc of peers.values())for(const s of pc.getSenders())if(s.track?.kind==='audio')pc.removeTrack(s)}renderAudioButtons()});
-$('speakerBtn').addEventListener('click',()=>{speakerOn=!speakerOn;remoteAudios.forEach(a=>a.muted=!speakerOn);renderAudioButtons()});$('soundBtn').addEventListener('click',()=>{ensureAudio();sfxOn=!sfxOn;renderAudioButtons();if(sfxOn)sfx('turn')});
+async function negotiatePeer(id,iceRestart=false){const pc=await getPeer(id),meta=peerMeta.get(id);if(!pc||!meta||!socket.connected||meta.makingOffer||pc.signalingState!=='stable')return;try{meta.makingOffer=true;const offer=await pc.createOffer(iceRestart?{iceRestart:true}:undefined);await pc.setLocalDescription(offer);socket.emit('rtc:signal',{to:id,data:{description:pc.localDescription}})}catch{}finally{meta.makingOffer=false}}
+async function flushCandidates(id,pc){const q=candidateQueues.get(id)||[];candidateQueues.set(id,[]);for(const c of q)try{await pc.addIceCandidate(c)}catch{}}
+function normalizePeers(list=[]){return list.map(x=>typeof x==='string'?{id:x,voiceOn:false}:x).filter(x=>x?.id&&x.id!==socket.id)}
+async function acceptPeerList(list=[]){for(const peer of normalizePeers(list)){await getPeer(peer.id);if(shouldInitiate(peer.id))await negotiatePeer(peer.id)}}
+async function syncRtcPeers(){if(!roomState||!socket.connected)return;const r=await ackEmit('rtc:sync');if(r.ok)await acceptPeerList(r.peers||[])}
+socket.on('rtc:peers',({peers:list=[]})=>acceptPeerList(list));
+socket.on('rtc:peer-joined',async({peerId})=>{await getPeer(peerId);if(shouldInitiate(peerId))await negotiatePeer(peerId)});
+socket.on('rtc:peer-left',({peerId})=>closePeer(peerId));
+socket.on('rtc:voice-state',({peerId,voiceOn})=>{const p=roomState?.players?.find(x=>x.id===peerId);if(p){p.voiceOn=!!voiceOn;renderPlayers()}});
+socket.on('rtc:signal',async({from,data})=>{if(!from||!data)return;const pc=await getPeer(from),meta=peerMeta.get(from);if(!pc||!meta)return;try{if(data.description){const desc=data.description,collision=desc.type==='offer'&&(meta.makingOffer||pc.signalingState!=='stable');meta.ignoreOffer=!meta.polite&&collision;if(meta.ignoreOffer)return;if(collision&&meta.polite)await pc.setLocalDescription({type:'rollback'});await pc.setRemoteDescription(desc);await flushCandidates(from,pc);if(desc.type==='offer'){await pc.setLocalDescription(await pc.createAnswer());socket.emit('rtc:signal',{to:from,data:{description:pc.localDescription}})}}else if(data.candidate){if(pc.remoteDescription?.type)await pc.addIceCandidate(data.candidate);else candidateQueues.get(from)?.push(data.candidate)}}catch{}});
+async function startLocalVoice(){if(!navigator.mediaDevices?.getUserMedia){toast(location.protocol==='https:'?'Voice is not supported in this browser.':'Voice needs HTTPS to use the microphone.');return false}try{localStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});micOn=true;for(const pc of peers.values())await attachLocalTrack(pc);socket.emit('rtc:voice-state',{voiceOn:true});await syncRtcPeers();renderAudioButtons();return true}catch{toast('Allow microphone access to use live voice.');return false}}
+function stopLocalVoice(){for(const pc of peers.values()){const sender=getAudioSender(pc);sender?.replaceTrack(null).catch(()=>{})}localStream?.getTracks().forEach(t=>t.stop());localStream=null;micOn=false;if(socket.connected&&roomState)socket.emit('rtc:voice-state',{voiceOn:false});renderAudioButtons()}
+$('micBtn').addEventListener('click',async()=>{ensureAudio();if(micOn)stopLocalVoice();else await startLocalVoice()});
+$('speakerBtn').addEventListener('click',()=>{speakerOn=!speakerOn;remoteAudios.forEach(a=>{a.muted=!speakerOn;if(speakerOn)a.play().catch(()=>{})});renderAudioButtons()});$('soundBtn').addEventListener('click',()=>{ensureAudio();sfxOn=!sfxOn;renderAudioButtons();if(sfxOn)sfx('turn')});
 
 window.addEventListener('popstate',()=>{if(!roomState)return;const g=location.pathname.includes('tic-tac')?'tictactoe':location.pathname.includes('word-search')?'wordsearch':'snakes';if(roomState.hostId===socket.id&&g!==roomState.activeGame)ackEmit('game:select',{game:g})});window.addEventListener('resize',layoutPieces);renderAudioButtons();

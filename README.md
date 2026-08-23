@@ -1,4 +1,4 @@
-# PlayVerse V9
+# PlayVerse V10
 
 Simple friend-play version for GitHub + Render.
 
@@ -28,4 +28,11 @@ The project includes a web app manifest, icons and service worker. On supported 
 4. Start: `npm start`
 5. No environment variables are required.
 
-Health check: `/health` returns version `9.0.0`.
+Health check: `/health` returns version `10.0.0`.
+
+
+## V10 live communication
+- Live room text chat is synchronized through Socket.IO and keeps the latest 80 room messages in memory.
+- Voice uses a safer WebRTC negotiation flow with queued ICE candidates, ICE restart, reconnect resync, echo cancellation, noise suppression and automatic gain control.
+- For reliable voice across strict mobile/carrier NATs, configure TURN_URLS (comma-separated), TURN_USERNAME and TURN_CREDENTIAL on the server. STUN-only mode remains available when TURN is not configured.
+- Cache shell is bumped to V10 and main HTML/CSS/JS use no-store/update checks to avoid stale deployments.

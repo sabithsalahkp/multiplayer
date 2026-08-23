@@ -1,7 +1,7 @@
 {
   "name": "PlayVerse",
   "short_name": "PlayVerse",
-  "description": "Multiplayer Snakes & Ladders, Tic Tac Toe and Word Search with live voice.",
+  "description": "Multiplayer Snakes & Ladders, Tic Tac Toe and Word Search with live voice, live room chat and reactions.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

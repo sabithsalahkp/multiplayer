@@ -13,7 +13,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icons/icon-192.png" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/style.css?v=10.0.0" />
 </head>
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><div class="grain"></div>
@@ -54,6 +54,7 @@
           <button id="micBtn" class="icon-btn" type="button"><span>🎙</span><b>MIC OFF</b></button>
           <button id="speakerBtn" class="icon-btn on" type="button"><span>🔊</span><b>SPEAKER ON</b></button>
           <button id="soundBtn" class="icon-btn on" type="button"><span>♪</span><b>SFX ON</b></button>
+          <button id="chatJumpBtn" class="icon-btn chat-jump" type="button"><span>💬</span><b>CHAT</b><i id="chatUnread" class="chat-unread hidden">0</i></button>
           <button id="leaveBtn" class="icon-btn danger" type="button"><span>↗</span><b>LEAVE</b></button>
         </div>
       </header>
@@ -132,20 +133,31 @@
             </section>
           </div>
 
-          <section class="reactions glass">
-            <div class="reaction-title"><b>REACTIONS</b><small>Tap a meme — everyone sees it</small></div>
-            <div id="stickerTray" class="sticker-tray"></div>
-          </section>
+          <div class="social-grid">
+            <section class="reactions glass">
+              <div class="reaction-title"><b>FUNNY REACTIONS</b><small>Tap a sticker — everyone in the room sees it</small></div>
+              <div id="stickerTray" class="sticker-tray"></div>
+            </section>
+
+            <section id="chatPanel" class="chat-panel glass" aria-label="Live room messages">
+              <div class="chat-head"><div><b>LIVE CHAT</b><small>Messages appear instantly while you play</small></div><span id="chatLiveDot">LIVE</span></div>
+              <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty">No messages yet. Say hi.</div></div>
+              <form id="chatForm" class="chat-form" autocomplete="off">
+                <input id="chatInput" maxlength="280" placeholder="Message your friends…" aria-label="Message" />
+                <button id="chatSendBtn" type="submit" aria-label="Send message">SEND</button>
+              </form>
+            </section>
+          </div>
         </section>
       </div>
     </section>
   </main>
 
   <div id="toastStack" class="toast-stack"></div>
-  <div id="stickerPopup" class="sticker-popup hidden"><div class="burst"></div><img alt="Reaction meme" /><b></b><small></small></div>
+  <div id="stickerPopup" class="sticker-popup hidden"><div class="burst"></div><div class="sticker-emoji-pop hidden" aria-hidden="true"></div><img alt="Reaction meme" /><b></b><small></small></div>
   <div id="winnerModal" class="winner-modal hidden"><div class="winner-card"><div class="trophy">♛</div><span>WINNER</span><h2 id="winnerName">Player</h2><p id="winnerGame">Game</p><button id="winnerCloseBtn" class="primary compact" type="button">NICE!</button></div></div>
   <div id="confettiLayer" class="confetti-layer"></div>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=10.0.0"></script>
 </body>
 </html>
