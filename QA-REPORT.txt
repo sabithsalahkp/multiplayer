@@ -1,0 +1,26 @@
+PLAYVERSE V9 QA REPORT
+
+Automated checks completed before packaging:
+
+PASS — 40 frontend render cycles across 360×800, 390×844, 412×915 and 1024×900.
+PASS — no JavaScript page errors in those 40 cycles.
+PASS — no horizontal page overflow in those 40 cycles.
+PASS — Snakes & Ladders renders 100 cells, 8 snakes and 8 ladders.
+PASS — public room browser renders a host name and join action without exposing a room code.
+PASS — mobile room browser has no horizontal scrolling.
+PASS — server room flow: create -> live public listing -> join by room id -> player count update -> leave update.
+PASS — opponent cannot roll during dice animation.
+PASS — opponent cannot roll during pawn/snake/ladder movement.
+PASS — opponent roll unlocks after the full previous move finishes.
+PASS — Word Search schedules a server-controlled 60-second turn timer.
+PASS — Word Search timer is visually above the playable grid.
+PASS — Word Search initial timer displays 01:00, not 00:60.
+PASS — Word Search grid renders 100 cells and has no mobile horizontal overflow.
+PASS — Tic Tac Toe renders 9 equal-size cells; X/O content does not resize the board.
+PASS — PWA manifest parses successfully.
+PASS — service-worker.js passes JavaScript syntax validation.
+PASS — 192px, 512px and Apple touch icons are present.
+PASS — app.js and server.js pass Node JavaScript syntax validation.
+PASS — all app.js element IDs exist in index.html and there are no duplicate HTML IDs.
+
+Version: 9.0.0

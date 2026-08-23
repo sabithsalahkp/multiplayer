@@ -7,19 +7,10 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' },
-  pingInterval: 10000,
-  pingTimeout: 20000,
-  maxHttpBufferSize: 128 * 1024,
-  perMessageDeflate: false
-});
+const io = new Server(server, { cors: { origin: '*' } });
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
-const APP_VERSION = '12.0.0';
-const RECONNECT_GRACE_MS = 15_000;
-const CHAT_HISTORY_LIMIT = 80;
 
 function readJson(name, fallback) {
   try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, name), 'utf8')); }
@@ -40,23 +31,13 @@ const jumps = {
 };
 
 const WORD_BANK = [
-  'MOUNTAIN','RIVER','FOREST','OCEAN','VALLEY','ISLAND','DESERT','CANYON','JUNGLE','WATER','CLOUD','STORM',
-  'RAIN','SUNSET','SUNRISE','THUNDER','BREEZE','WINTER','SUMMER','SPRING','AUTUMN','PLANET','GALAXY','COMET',
-  'MOON','STARS','SPACE','EARTH','NATURE','GARDEN','FLOWER','TREE','GRASS','LEAF','STONE','ROCK','SAND',
-  'BEACH','LAKE','POND','WAVE','CORAL','FISH','SHARK','WHALE','DOLPHIN','TIGER','LION','PANDA','EAGLE',
-  'HORSE','RABBIT','MONKEY','TURTLE','PARROT','BUTTER','BRIDGE','ROAD','TRAIN','PLANE','TRUCK','BICYCLE',
-  'SCHOOL','MARKET','CASTLE','TOWER','HOUSE','WINDOW','DOOR','TABLE','CHAIR','CLOCK','LIGHT','CAMERA',
-  'PHONE','RADIO','ROBOT','ENGINE','GUITAR','PIANO','MUSIC','MOVIE','BOOK','PAPER','PENCIL','PAINT',
-  'COLOR','PUZZLE','GAME','SPORT','CRICKET','FOOTBALL','TENNIS','RACING','DANCE','MAGIC','LAUGH','SMILE',
-  'FRIEND','HAPPY','DREAM','LUCKY','BRAVE','POWER','SPEED','QUIET','FRESH','BRIGHT','COFFEE','COOKIE',
-  'PIZZA','MANGO','APPLE','ORANGE','BANANA','GRAPES','BREAD','CHEESE','HONEY','SUGAR','SPICE','TRAVEL',
-  'JOURNEY','CAMP','TRAIL','MAP','NORTH','SOUTH','EAST','WEST','CITY','VILLAGE','HARBOR','TEMPLE'
+  'LOVE','SMILE','DREAM','HEART','HAPPY','FUN','COFFEE','MUSIC','MOVIE','HELLO','LUCKY','SUNSET',
+  'GAMER','SWEET','LAUGH','DANCE','PARTY','FRIEND','MAGIC','CUTE','CHILL','SPARK','HONEY','NIGHT',
+  'PIZZA','TRAVEL','CLOUD','STARS','BEACH','PHONE','PHOTO','CRUSH','MANGO','RAIN','COOKIE','VIBE'
 ];
 
 function clamp(v, a, b) { v = Number(v); return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : a; }
 function cleanName(v) { return String(v || 'Player').replace(/[<>]/g, '').trim().slice(0, 20) || 'Player'; }
-function cleanMessage(v) { return String(v || '').replace(/[<>\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 280); }
-function cleanPlayerKey(v) { return String(v || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80); }
 function code() { const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; do { s=''; for(let i=0;i<6;i++) s+=chars[crypto.randomInt(chars.length)]; } while(rooms.has(s)); return s; }
 function publicSettings(){ return { ...settings }; }
 function publicStickers(){ return stickers.filter(s => s.enabled).sort((a,b)=>(a.order||0)-(b.order||0)); }
@@ -91,7 +72,7 @@ function makeWordSearch(seed = crypto.randomInt(1, 2**30)){
   const candidates=shuffle(WORD_BANK,rnd).filter(w=>w.length<=8);
   const words=[];
   for(const word of candidates){
-    if(words.length>=10) break;
+    if(words.length>=8) break;
     let placed=false;
     for(let attempt=0;attempt<140&&!placed;attempt++){
       const [dr,dc]=directions[Math.floor(rnd()*directions.length)];
@@ -116,7 +97,7 @@ function makeWordSearch(seed = crypto.randomInt(1, 2**30)){
 
 function initRoom(c, host){
   return {
-    code:c, hostId:host.id, activeGame:'snakes', players:[host], messages:[],
+    code:c, hostId:host.id, activeGame:'snakes', players:[host],
     snakes:{status:'lobby',turnIndex:0,winnerId:null,lastRoll:null,lastMove:null,moveSeq:0,rolling:false,phase:'idle',turnReadyAt:0},
     ttt:{status:'ready',board:Array(9).fill(null),turnIndex:0,winnerId:null,round:1},
     wordsearch:makeWordSearch(), createdAt:Date.now()
@@ -156,55 +137,27 @@ function beginWordTurn(r){
 function pubRoom(r){
   return {
     code:r.code, hostId:r.hostId, activeGame:r.activeGame, path:GAME_PATHS[r.activeGame], settings:publicSettings(),
-    players:r.players.map(p=>({id:p.id,name:p.name,colorIndex:p.colorIndex,position:p.position,connected:p.connected!==false,voiceOn:!!p.voiceOn})),
+    players:r.players.map(p=>({id:p.id,name:p.name,colorIndex:p.colorIndex,position:p.position})),
     snakes:{...r.snakes}, ttt:{...r.ttt,board:[...r.ttt.board]}, wordsearch:pubWordSearch(r.wordsearch)
   };
-}
-function replacePlayerId(r, oldId, newId){
-  if(r.hostId===oldId) r.hostId=newId;
-  if(r.snakes.winnerId===oldId) r.snakes.winnerId=newId;
-  if(r.snakes.lastMove?.playerId===oldId) r.snakes.lastMove.playerId=newId;
-  if(r.ttt.winnerId===oldId) r.ttt.winnerId=newId;
-  if(r.wordsearch.winnerId===oldId) r.wordsearch.winnerId=newId;
-  if(r.wordsearch.lastTimeoutPlayerId===oldId) r.wordsearch.lastTimeoutPlayerId=newId;
-  for(const f of r.wordsearch.found||[]) if(f.playerId===oldId) f.playerId=newId;
-  for(const m of r.messages||[]) if(m.playerId===oldId) m.playerId=newId;
-}
-function removePlayerFromRoom(r, idx, oldSocketId, reason='left'){
-  if(!r||idx<0||idx>=r.players.length) return;
-  const affectedTttPlayer=idx<2;
-  const [gone]=r.players.splice(idx,1);
-  if(gone?.disconnectTimer){ clearTimeout(gone.disconnectTimer); gone.disconnectTimer=null; }
-  if(!r.players.length){ stopWordTurn(r); rooms.delete(r.code); broadcastLobby(); return; }
-  if(r.hostId===(oldSocketId||gone?.id)) r.hostId=r.players[0].id;
-  r.snakes.turnIndex=Math.min(r.snakes.turnIndex,Math.max(0,r.players.length-1));
-  if(affectedTttPlayer){r.ttt={status:'ready',board:Array(9).fill(null),turnIndex:0,winnerId:null,round:(r.ttt.round||1)+1};}
-  else r.ttt.turnIndex=Math.min(r.ttt.turnIndex,Math.min(1,Math.max(0,r.players.length-1)));
-  r.wordsearch.turnIndex=Math.min(r.wordsearch.turnIndex,Math.max(0,r.players.length-1));
-  if(r.snakes.status==='playing'&&r.players.filter(p=>p.connected!==false).length<settings.minPlayers){
-    r.snakes.status='lobby';r.snakes.phase='idle';r.snakes.rolling=false;r.snakes.winnerId=null;r.snakes.lastMove=null;r.snakes.lastRoll=null;r.snakes.moveSeq++;r.snakes.turnReadyAt=0;r.snakes.turnIndex=0;
-  }
-  if(r.activeGame==='wordsearch') beginWordTurn(r);
-  notice(r,`${gone.name} ${reason}.`); emitRoom(r); broadcastLobby();
 }
 function leaveRoom(socket){
   const r=roomOf(socket); if(!r) return;
   const idx=r.players.findIndex(p=>p.id===socket.id); if(idx<0) return;
-  socket.leave(r.code); socket.data.roomCode=null;
-  removePlayerFromRoom(r,idx,socket.id,'left');
-}
-function softDisconnect(socket){
-  const r=roomOf(socket); if(!r) return;
-  const p=r.players.find(x=>x.id===socket.id); if(!p) return;
-  p.connected=false; p.voiceOn=false; p.disconnectedAt=Date.now();
-  emitRoom(r); broadcastLobby();
-  const oldId=socket.id;
-  if(p.disconnectTimer) clearTimeout(p.disconnectTimer);
-  p.disconnectTimer=setTimeout(()=>{
-    const live=rooms.get(r.code); if(!live) return;
-    const idx=live.players.findIndex(x=>x.id===oldId&&x.connected===false);
-    if(idx>=0) removePlayerFromRoom(live,idx,oldId,'timed out');
-  },RECONNECT_GRACE_MS);
+  const affectedTttPlayer=idx<2;
+  const [gone]=r.players.splice(idx,1); socket.leave(r.code); socket.data.roomCode=null;
+  socket.to(r.code).emit('rtc:peer-left',{peerId:socket.id});
+  if(!r.players.length){ stopWordTurn(r); rooms.delete(r.code); broadcastLobby(); return; }
+  if(r.hostId===socket.id) r.hostId=r.players[0].id;
+  r.snakes.turnIndex=Math.min(r.snakes.turnIndex,Math.max(0,r.players.length-1));
+  if(affectedTttPlayer){r.ttt={status:'ready',board:Array(9).fill(null),turnIndex:0,winnerId:null,round:(r.ttt.round||1)+1};}
+  else r.ttt.turnIndex=Math.min(r.ttt.turnIndex,Math.min(1,Math.max(0,r.players.length-1)));
+  r.wordsearch.turnIndex=Math.min(r.wordsearch.turnIndex,Math.max(0,r.players.length-1));
+  if(r.snakes.status==='playing'&&r.players.length<settings.minPlayers){
+    r.snakes.status='lobby';r.snakes.phase='idle';r.snakes.rolling=false;r.snakes.winnerId=null;r.snakes.lastMove=null;r.snakes.lastRoll=null;r.snakes.moveSeq++;r.snakes.turnReadyAt=0;r.snakes.turnIndex=0;
+  }
+  if(r.activeGame==='wordsearch') beginWordTurn(r);
+  notice(r,`${gone.name} left.`); emitRoom(r); broadcastLobby();
 }
 function tttWinner(b){ const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; return lines.find(([a,c,d])=>b[a]&&b[a]===b[c]&&b[a]===b[d])||null; }
 function normalizeSelection(start,end,size){
@@ -222,17 +175,9 @@ function normalizeSelection(start,end,size){
 function samePath(a,b){ return a.length===b.length&&a.every((v,i)=>v===b[i]); }
 
 app.use(express.json({limit:'1mb'}));
-app.use((req,res,next)=>{
-  if(req.path==='/'||req.path==='/index.html'||req.path==='/service-worker.js'||req.path==='/app-v12.js'||req.path==='/style-v12.css'||req.path==='/voice-worklet-v12.js'||req.path==='/admin.html'||req.path==='/admin-v12.js'||req.path==='/admin-v12.css'||req.path==='/manifest-v12.webmanifest'||GAME_PATHS && Object.values(GAME_PATHS).includes(req.path)){
-    res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma','no-cache');
-    res.set('Expires','0');
-  }
-  next();
-});
 app.use(express.static(PUBLIC_DIR));
-app.get('/health',(_q,res)=>res.json({ok:true,version:APP_VERSION}));
-app.get('/config',(_q,res)=>res.json({version:APP_VERSION,voiceTransport:'socket-pcm-v2',voiceSampleRate:16000,settings:publicSettings()}));
+app.get('/health',(_q,res)=>res.json({ok:true,version:'9.0.0'}));
+app.get('/config',(_q,res)=>res.json({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],settings:publicSettings()}));
 app.get('/api/stickers',(_q,res)=>res.json({ok:true,stickers:publicStickers()}));
 app.get('/api/rooms',(_q,res)=>res.json({ok:true,rooms:lobbyRooms()}));
 app.get('/admin',(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'admin.html')));
@@ -240,7 +185,7 @@ app.get(['/snakes','/tic-tac-toe','/word-search'],(_q,res)=>res.sendFile(path.jo
 app.get('/api/admin/dashboard',(_q,res)=>res.json({ok:true,settings:publicSettings(),stickers,rooms:[...rooms.values()].map(r=>({code:r.code,game:r.activeGame,players:r.players.map(p=>p.name)}))}));
 app.put('/api/admin/settings',(req,res)=>{
   const b=req.body||{};
-  settings={...settings,maxPlayers:Math.round(clamp(b.maxPlayers,2,6)),minPlayers:Math.round(clamp(b.minPlayers,2,6)),exactRollToWin:!!b.exactRollToWin,extraTurnOnSix:!!b.extraTurnOnSix,stickerPopupMs:Math.round(clamp(b.stickerPopupMs,1000,6000)),stickerCooldownMs:Math.round(clamp(b.stickerCooldownMs,300,5000)),soundDefaultOn:true};
+  settings={...settings,maxPlayers:Math.round(clamp(b.maxPlayers,2,6)),minPlayers:Math.round(clamp(b.minPlayers,2,6)),exactRollToWin:!!b.exactRollToWin,extraTurnOnSix:!!b.extraTurnOnSix,stickerPopupMs:Math.round(clamp(b.stickerPopupMs,1000,6000)),stickerCooldownMs:Math.round(clamp(b.stickerCooldownMs,300,5000)),soundDefaultOn:b.soundDefaultOn!==false};
   if(settings.minPlayers>settings.maxPlayers)settings.minPlayers=settings.maxPlayers;
   io.emit('game:settings',publicSettings()); broadcastLobby(); res.json({ok:true,settings,persistent:false});
 });
@@ -255,26 +200,18 @@ io.on('connection',socket=>{
 
   socket.on('room:create',(payload={},ack=()=>{})=>{
     try{
-      leaveRoom(socket); const c=code(); const p={id:socket.id,key:cleanPlayerKey(payload.playerKey),name:cleanName(payload.name),colorIndex:0,position:1,connected:true,voiceOn:false}; const r=initRoom(c,p);
-      rooms.set(c,r); socket.join(c); socket.data.roomCode=c; socket.data.playerName=p.name; socket.data.playerKey=p.key;
-      ack({ok:true,room:pubRoom(r),messages:r.messages}); emitRoom(r); broadcastLobby();
+      leaveRoom(socket); const c=code(); const p={id:socket.id,name:cleanName(payload.name),colorIndex:0,position:1}; const r=initRoom(c,p);
+      rooms.set(c,r); socket.join(c); socket.data.roomCode=c; socket.data.playerName=p.name; ack({ok:true,room:pubRoom(r)}); emitRoom(r); broadcastLobby();
     }catch(e){ console.error(e); ack({ok:false,error:'Could not create room.'}); }
   });
   socket.on('room:join',(payload={},ack=()=>{})=>{
     const c=String(payload.roomId||payload.code||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6),r=rooms.get(c);
-    if(!r)return ack({ok:false,error:'Room not found.'});
-    const playerKey=cleanPlayerKey(payload.playerKey), existing=playerKey?r.players.find(p=>p.key===playerKey&&p.connected===false):null;
-    if(existing){
-      const oldId=existing.id; if(existing.disconnectTimer){clearTimeout(existing.disconnectTimer);existing.disconnectTimer=null;}
-      existing.id=socket.id;existing.connected=true;existing.voiceOn=false;existing.disconnectedAt=0;existing.name=cleanName(payload.name||existing.name);replacePlayerId(r,oldId,socket.id);if(r.activeGame==='wordsearch')beginWordTurn(r);
-      socket.join(c);socket.data.roomCode=c;socket.data.playerName=existing.name;socket.data.playerKey=playerKey;
-      ack({ok:true,room:pubRoom(r),messages:r.messages,reconnected:true});notice(r,`${existing.name} reconnected.`);emitRoom(r);broadcastLobby();return;
-    }
-    if(r.players.length>=settings.maxPlayers)return ack({ok:false,error:'Room is full.'});
-    leaveRoom(socket); const p={id:socket.id,key:playerKey,name:cleanName(payload.name),colorIndex:r.players.length%6,position:1,connected:true,voiceOn:false}; r.players.push(p);
-    socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;socket.data.playerKey=p.key;
+    if(!r)return ack({ok:false,error:'Room not found.'}); if(r.players.length>=settings.maxPlayers)return ack({ok:false,error:'Room is full.'});
+    leaveRoom(socket); const p={id:socket.id,name:cleanName(payload.name),colorIndex:r.players.length%6,position:1}; r.players.push(p);
+    socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;
+    socket.emit('rtc:peers',{peers:r.players.filter(x=>x.id!==socket.id).map(x=>x.id)}); socket.to(c).emit('rtc:peer-joined',{peerId:socket.id});
     if(r.activeGame==='wordsearch'&&r.players.length>=2&&!r.wordsearch.turnDeadline) beginWordTurn(r);
-    notice(r,`${p.name} joined.`); ack({ok:true,room:pubRoom(r),messages:r.messages}); emitRoom(r); broadcastLobby();
+    notice(r,`${p.name} joined.`); ack({ok:true,room:pubRoom(r)}); emitRoom(r); broadcastLobby();
   });
   socket.on('room:leave',()=>leaveRoom(socket));
 
@@ -380,45 +317,13 @@ io.on('connection',socket=>{
     if(w.status==='won')io.to(r.code).emit('game:win',{game:'wordsearch',winnerId:w.winnerId,draw:!w.winnerId});
   });
 
-  socket.on('chat:send',(payload={},ack=()=>{})=>{
-    const r=roomOf(socket);if(!r)return ack({ok:false,error:'No room.'});
-    const text=cleanMessage(payload.text);if(!text)return ack({ok:false,error:'Type a message.'});
-    const now=Date.now(),last=socket.data.lastChat||0;if(now-last<350)return ack({ok:false,error:'Slow down a little.'});
-    socket.data.lastChat=now;
-    const msg={id:crypto.randomUUID(),playerId:socket.id,from:socket.data.playerName||'Player',text,at:now};
-    r.messages.push(msg);if(r.messages.length>CHAT_HISTORY_LIMIT)r.messages.splice(0,r.messages.length-CHAT_HISTORY_LIMIT);
-    io.to(r.code).emit('chat:message',msg);ack({ok:true,id:msg.id});
-  });
-
   socket.on('sticker:send',(payload={},ack=()=>{})=>{
     const r=roomOf(socket);if(!r)return ack({ok:false});const now=Date.now(),last=socket.data.lastSticker||0;if(now-last<settings.stickerCooldownMs)return ack({ok:false,error:'Too fast.'});
-    const st=stickers.find(s=>s.id===payload.id&&s.enabled);if(!st)return ack({ok:false,error:'Sticker unavailable.'});socket.data.lastSticker=now;io.to(r.code).emit('sticker:pop',{id:st.id,name:st.name,url:st.url||'',from:socket.data.playerName||'Player',ms:settings.stickerPopupMs});ack({ok:true});
+    const st=stickers.find(s=>s.id===payload.id&&s.enabled);if(!st)return ack({ok:false,error:'Sticker unavailable.'});socket.data.lastSticker=now;io.to(r.code).emit('sticker:pop',{id:st.id,name:st.name,url:st.url,from:socket.data.playerName||'Player',ms:settings.stickerPopupMs});ack({ok:true});
   });
 
-  socket.on('voice:state',(payload={})=>{
-    const r=roomOf(socket);if(!r)return;const p=r.players.find(x=>x.id===socket.id);if(!p)return;
-    p.voiceOn=!!payload.voiceOn;
-    socket.to(r.code).emit('voice:state',{playerId:socket.id,voiceOn:p.voiceOn});
-    emitRoom(r);
-  });
-
-  socket.on('voice:chunk',(payload={})=>{
-    const r=roomOf(socket);if(!r)return;
-    const p=r.players.find(x=>x.id===socket.id);if(!p||p.connected===false)return;
-    const raw=payload.pcm;
-    let buf=null;
-    if(Buffer.isBuffer(raw)) buf=raw;
-    else if(raw instanceof ArrayBuffer) buf=Buffer.from(raw);
-    else if(ArrayBuffer.isView(raw)) buf=Buffer.from(raw.buffer,raw.byteOffset,raw.byteLength);
-    if(!buf||buf.length<2||buf.length>16*1024)return;
-    const now=Date.now();
-    if(!socket.data.voiceRateAt||now-socket.data.voiceRateAt>=1000){socket.data.voiceRateAt=now;socket.data.voiceRateBytes=0;}
-    socket.data.voiceRateBytes=(socket.data.voiceRateBytes||0)+buf.length;
-    if(socket.data.voiceRateBytes>96*1024)return;
-    if(!p.voiceOn){p.voiceOn=true;socket.to(r.code).emit('voice:state',{playerId:socket.id,voiceOn:true});emitRoom(r);}
-    socket.to(r.code).compress(false).emit('voice:chunk',{from:socket.id,pcm:buf,sampleRate:16000,seq:Number(payload.seq)||0});
-  });
-  socket.on('disconnect',()=>softDisconnect(socket));
+  socket.on('rtc:signal',(payload={})=>{const r=roomOf(socket);if(!r)return;const target=io.sockets.sockets.get(payload.to);if(target&&target.data.roomCode===r.code)target.emit('rtc:signal',{from:socket.id,data:payload.data});});
+  socket.on('disconnect',()=>leaveRoom(socket));
 });
 
-server.listen(PORT,()=>console.log(`PlayVerse v${APP_VERSION} running on ${PORT}`));
+server.listen(PORT,()=>console.log(`PlayVerse v9 running on ${PORT}`));

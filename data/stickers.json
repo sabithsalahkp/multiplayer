@@ -1,0 +1,10 @@
+[
+  {"id":"tralalero","name":"Tralalero","url":"https://upload.wikimedia.org/wikipedia/commons/f/f6/Tralalero_Tralala.webp","enabled":true,"order":1},
+  {"id":"ballerina","name":"Ballerina","url":"https://upload.wikimedia.org/wikipedia/commons/e/e3/Ballerina_Cappucina.webp","enabled":true,"order":2},
+  {"id":"chimp","name":"Chimpanzini","url":"https://upload.wikimedia.org/wikipedia/commons/9/96/ChimpanziniBananini.webp","enabled":true,"order":3},
+  {"id":"cappuccino","name":"Cappuccino","url":"https://upload.wikimedia.org/wikipedia/commons/9/99/Cappucino_assasino.webp","enabled":true,"order":4},
+  {"id":"laughingking","name":"Damn Bro","url":"https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Alim_Khan_Meme.jpg/960px-Alim_Khan_Meme.jpg","enabled":true,"order":5},
+  {"id":"troll","name":"Troll","url":"https://upload.wikimedia.org/wikipedia/commons/6/63/TrollFace_2.0.jpg","enabled":true,"order":6},
+  {"id":"udin","name":"Udin","url":"https://upload.wikimedia.org/wikipedia/commons/8/8c/Udin_din_din_din_dun.jpg","enabled":true,"order":7},
+  {"id":"ceilingcat","name":"Ceiling Cat","url":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Eva_and_Franco_Mattes%2C_Ceiling_Cat.jpg/1280px-Eva_and_Franco_Mattes%2C_Ceiling_Cat.jpg","enabled":true,"order":8}
+]
