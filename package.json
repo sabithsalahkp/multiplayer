@@ -1,8 +1,8 @@
 {
-  "name": "playverse-premium-v10",
-  "version": "10.0.0",
+  "name": "playverse-premium-v12",
+  "version": "12.0.0",
   "private": true,
-  "description": "Installable public-room multiplayer Snakes & Ladders, Tic Tac Toe and 60-second Word Search with live voice, live chat and reactions",
+  "description": "Compact installable multiplayer games with Socket.IO live voice, popup chat previews and 10 clean meme stickers",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

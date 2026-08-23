@@ -7,11 +7,17 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: { origin: '*' },
+  pingInterval: 10000,
+  pingTimeout: 20000,
+  maxHttpBufferSize: 128 * 1024,
+  perMessageDeflate: false
+});
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
-const APP_VERSION = '10.0.0';
+const APP_VERSION = '12.0.0';
 const RECONNECT_GRACE_MS = 15_000;
 const CHAT_HISTORY_LIMIT = 80;
 
@@ -34,23 +40,23 @@ const jumps = {
 };
 
 const WORD_BANK = [
-  'LOVE','SMILE','DREAM','HEART','HAPPY','FUN','COFFEE','MUSIC','MOVIE','HELLO','LUCKY','SUNSET',
-  'GAMER','SWEET','LAUGH','DANCE','PARTY','FRIEND','MAGIC','CUTE','CHILL','SPARK','HONEY','NIGHT',
-  'PIZZA','TRAVEL','CLOUD','STARS','BEACH','PHONE','PHOTO','CRUSH','MANGO','RAIN','COOKIE','VIBE'
+  'MOUNTAIN','RIVER','FOREST','OCEAN','VALLEY','ISLAND','DESERT','CANYON','JUNGLE','WATER','CLOUD','STORM',
+  'RAIN','SUNSET','SUNRISE','THUNDER','BREEZE','WINTER','SUMMER','SPRING','AUTUMN','PLANET','GALAXY','COMET',
+  'MOON','STARS','SPACE','EARTH','NATURE','GARDEN','FLOWER','TREE','GRASS','LEAF','STONE','ROCK','SAND',
+  'BEACH','LAKE','POND','WAVE','CORAL','FISH','SHARK','WHALE','DOLPHIN','TIGER','LION','PANDA','EAGLE',
+  'HORSE','RABBIT','MONKEY','TURTLE','PARROT','BUTTER','BRIDGE','ROAD','TRAIN','PLANE','TRUCK','BICYCLE',
+  'SCHOOL','MARKET','CASTLE','TOWER','HOUSE','WINDOW','DOOR','TABLE','CHAIR','CLOCK','LIGHT','CAMERA',
+  'PHONE','RADIO','ROBOT','ENGINE','GUITAR','PIANO','MUSIC','MOVIE','BOOK','PAPER','PENCIL','PAINT',
+  'COLOR','PUZZLE','GAME','SPORT','CRICKET','FOOTBALL','TENNIS','RACING','DANCE','MAGIC','LAUGH','SMILE',
+  'FRIEND','HAPPY','DREAM','LUCKY','BRAVE','POWER','SPEED','QUIET','FRESH','BRIGHT','COFFEE','COOKIE',
+  'PIZZA','MANGO','APPLE','ORANGE','BANANA','GRAPES','BREAD','CHEESE','HONEY','SUGAR','SPICE','TRAVEL',
+  'JOURNEY','CAMP','TRAIL','MAP','NORTH','SOUTH','EAST','WEST','CITY','VILLAGE','HARBOR','TEMPLE'
 ];
 
 function clamp(v, a, b) { v = Number(v); return Number.isFinite(v) ? Math.max(a, Math.min(b, v)) : a; }
 function cleanName(v) { return String(v || 'Player').replace(/[<>]/g, '').trim().slice(0, 20) || 'Player'; }
 function cleanMessage(v) { return String(v || '').replace(/[<>\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 280); }
 function cleanPlayerKey(v) { return String(v || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80); }
-function iceServers(){
-  const list=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
-  const turnUrls=String(process.env.TURN_URLS||process.env.TURN_URL||'').split(',').map(x=>x.trim()).filter(Boolean);
-  if(turnUrls.length&&process.env.TURN_USERNAME&&process.env.TURN_CREDENTIAL){
-    list.push({urls:turnUrls,username:process.env.TURN_USERNAME,credential:process.env.TURN_CREDENTIAL});
-  }
-  return list;
-}
 function code() { const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; do { s=''; for(let i=0;i<6;i++) s+=chars[crypto.randomInt(chars.length)]; } while(rooms.has(s)); return s; }
 function publicSettings(){ return { ...settings }; }
 function publicStickers(){ return stickers.filter(s => s.enabled).sort((a,b)=>(a.order||0)-(b.order||0)); }
@@ -85,7 +91,7 @@ function makeWordSearch(seed = crypto.randomInt(1, 2**30)){
   const candidates=shuffle(WORD_BANK,rnd).filter(w=>w.length<=8);
   const words=[];
   for(const word of candidates){
-    if(words.length>=8) break;
+    if(words.length>=10) break;
     let placed=false;
     for(let attempt=0;attempt<140&&!placed;attempt++){
       const [dr,dc]=directions[Math.floor(rnd()*directions.length)];
@@ -169,7 +175,6 @@ function removePlayerFromRoom(r, idx, oldSocketId, reason='left'){
   const affectedTttPlayer=idx<2;
   const [gone]=r.players.splice(idx,1);
   if(gone?.disconnectTimer){ clearTimeout(gone.disconnectTimer); gone.disconnectTimer=null; }
-  io.to(r.code).emit('rtc:peer-left',{peerId:oldSocketId||gone?.id});
   if(!r.players.length){ stopWordTurn(r); rooms.delete(r.code); broadcastLobby(); return; }
   if(r.hostId===(oldSocketId||gone?.id)) r.hostId=r.players[0].id;
   r.snakes.turnIndex=Math.min(r.snakes.turnIndex,Math.max(0,r.players.length-1));
@@ -192,8 +197,6 @@ function softDisconnect(socket){
   const r=roomOf(socket); if(!r) return;
   const p=r.players.find(x=>x.id===socket.id); if(!p) return;
   p.connected=false; p.voiceOn=false; p.disconnectedAt=Date.now();
-  io.to(r.code).emit('rtc:peer-left',{peerId:socket.id});
-  io.to(r.code).emit('rtc:voice-state',{peerId:socket.id,voiceOn:false});
   emitRoom(r); broadcastLobby();
   const oldId=socket.id;
   if(p.disconnectTimer) clearTimeout(p.disconnectTimer);
@@ -220,7 +223,7 @@ function samePath(a,b){ return a.length===b.length&&a.every((v,i)=>v===b[i]); }
 
 app.use(express.json({limit:'1mb'}));
 app.use((req,res,next)=>{
-  if(req.path==='/'||req.path==='/index.html'||req.path==='/service-worker.js'||req.path==='/app.js'||req.path==='/style.css'||GAME_PATHS && Object.values(GAME_PATHS).includes(req.path)){
+  if(req.path==='/'||req.path==='/index.html'||req.path==='/service-worker.js'||req.path==='/app-v12.js'||req.path==='/style-v12.css'||req.path==='/voice-worklet-v12.js'||req.path==='/admin.html'||req.path==='/admin-v12.js'||req.path==='/admin-v12.css'||req.path==='/manifest-v12.webmanifest'||GAME_PATHS && Object.values(GAME_PATHS).includes(req.path)){
     res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma','no-cache');
     res.set('Expires','0');
@@ -229,7 +232,7 @@ app.use((req,res,next)=>{
 });
 app.use(express.static(PUBLIC_DIR));
 app.get('/health',(_q,res)=>res.json({ok:true,version:APP_VERSION}));
-app.get('/config',(_q,res)=>res.json({version:APP_VERSION,iceServers:iceServers(),hasTurn:iceServers().some(x=>[].concat(x.urls||[]).some(u=>/^turns?:/i.test(String(u)))),settings:publicSettings()}));
+app.get('/config',(_q,res)=>res.json({version:APP_VERSION,voiceTransport:'socket-pcm-v2',voiceSampleRate:16000,settings:publicSettings()}));
 app.get('/api/stickers',(_q,res)=>res.json({ok:true,stickers:publicStickers()}));
 app.get('/api/rooms',(_q,res)=>res.json({ok:true,rooms:lobbyRooms()}));
 app.get('/admin',(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'admin.html')));
@@ -237,7 +240,7 @@ app.get(['/snakes','/tic-tac-toe','/word-search'],(_q,res)=>res.sendFile(path.jo
 app.get('/api/admin/dashboard',(_q,res)=>res.json({ok:true,settings:publicSettings(),stickers,rooms:[...rooms.values()].map(r=>({code:r.code,game:r.activeGame,players:r.players.map(p=>p.name)}))}));
 app.put('/api/admin/settings',(req,res)=>{
   const b=req.body||{};
-  settings={...settings,maxPlayers:Math.round(clamp(b.maxPlayers,2,6)),minPlayers:Math.round(clamp(b.minPlayers,2,6)),exactRollToWin:!!b.exactRollToWin,extraTurnOnSix:!!b.extraTurnOnSix,stickerPopupMs:Math.round(clamp(b.stickerPopupMs,1000,6000)),stickerCooldownMs:Math.round(clamp(b.stickerCooldownMs,300,5000)),soundDefaultOn:b.soundDefaultOn!==false};
+  settings={...settings,maxPlayers:Math.round(clamp(b.maxPlayers,2,6)),minPlayers:Math.round(clamp(b.minPlayers,2,6)),exactRollToWin:!!b.exactRollToWin,extraTurnOnSix:!!b.extraTurnOnSix,stickerPopupMs:Math.round(clamp(b.stickerPopupMs,1000,6000)),stickerCooldownMs:Math.round(clamp(b.stickerCooldownMs,300,5000)),soundDefaultOn:true};
   if(settings.minPlayers>settings.maxPlayers)settings.minPlayers=settings.maxPlayers;
   io.emit('game:settings',publicSettings()); broadcastLobby(); res.json({ok:true,settings,persistent:false});
 });
@@ -265,14 +268,11 @@ io.on('connection',socket=>{
       const oldId=existing.id; if(existing.disconnectTimer){clearTimeout(existing.disconnectTimer);existing.disconnectTimer=null;}
       existing.id=socket.id;existing.connected=true;existing.voiceOn=false;existing.disconnectedAt=0;existing.name=cleanName(payload.name||existing.name);replacePlayerId(r,oldId,socket.id);if(r.activeGame==='wordsearch')beginWordTurn(r);
       socket.join(c);socket.data.roomCode=c;socket.data.playerName=existing.name;socket.data.playerKey=playerKey;
-      const peers=r.players.filter(x=>x.id!==socket.id&&x.connected!==false).map(x=>({id:x.id,voiceOn:!!x.voiceOn}));
-      socket.emit('rtc:peers',{peers});socket.to(c).emit('rtc:peer-joined',{peerId:socket.id,voiceOn:false});
       ack({ok:true,room:pubRoom(r),messages:r.messages,reconnected:true});notice(r,`${existing.name} reconnected.`);emitRoom(r);broadcastLobby();return;
     }
     if(r.players.length>=settings.maxPlayers)return ack({ok:false,error:'Room is full.'});
     leaveRoom(socket); const p={id:socket.id,key:playerKey,name:cleanName(payload.name),colorIndex:r.players.length%6,position:1,connected:true,voiceOn:false}; r.players.push(p);
     socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;socket.data.playerKey=p.key;
-    socket.emit('rtc:peers',{peers:r.players.filter(x=>x.id!==socket.id&&x.connected!==false).map(x=>({id:x.id,voiceOn:!!x.voiceOn}))}); socket.to(c).emit('rtc:peer-joined',{peerId:socket.id,voiceOn:false});
     if(r.activeGame==='wordsearch'&&r.players.length>=2&&!r.wordsearch.turnDeadline) beginWordTurn(r);
     notice(r,`${p.name} joined.`); ack({ok:true,room:pubRoom(r),messages:r.messages}); emitRoom(r); broadcastLobby();
   });
@@ -392,12 +392,32 @@ io.on('connection',socket=>{
 
   socket.on('sticker:send',(payload={},ack=()=>{})=>{
     const r=roomOf(socket);if(!r)return ack({ok:false});const now=Date.now(),last=socket.data.lastSticker||0;if(now-last<settings.stickerCooldownMs)return ack({ok:false,error:'Too fast.'});
-    const st=stickers.find(s=>s.id===payload.id&&s.enabled);if(!st)return ack({ok:false,error:'Sticker unavailable.'});socket.data.lastSticker=now;io.to(r.code).emit('sticker:pop',{id:st.id,name:st.name,url:st.url||'',emoji:st.emoji||'',from:socket.data.playerName||'Player',ms:settings.stickerPopupMs});ack({ok:true});
+    const st=stickers.find(s=>s.id===payload.id&&s.enabled);if(!st)return ack({ok:false,error:'Sticker unavailable.'});socket.data.lastSticker=now;io.to(r.code).emit('sticker:pop',{id:st.id,name:st.name,url:st.url||'',from:socket.data.playerName||'Player',ms:settings.stickerPopupMs});ack({ok:true});
   });
 
-  socket.on('rtc:sync',(_,ack=()=>{})=>{const r=roomOf(socket);if(!r)return ack({ok:false,peers:[]});ack({ok:true,peers:r.players.filter(x=>x.id!==socket.id&&x.connected!==false).map(x=>({id:x.id,voiceOn:!!x.voiceOn}))});});
-  socket.on('rtc:voice-state',(payload={})=>{const r=roomOf(socket);if(!r)return;const p=r.players.find(x=>x.id===socket.id);if(!p)return;p.voiceOn=!!payload.voiceOn;socket.to(r.code).emit('rtc:voice-state',{peerId:socket.id,voiceOn:p.voiceOn});emitRoom(r);});
-  socket.on('rtc:signal',(payload={})=>{const r=roomOf(socket);if(!r||!payload.to||!payload.data)return;const target=io.sockets.sockets.get(payload.to);if(target&&target.data.roomCode===r.code)target.emit('rtc:signal',{from:socket.id,data:payload.data});});
+  socket.on('voice:state',(payload={})=>{
+    const r=roomOf(socket);if(!r)return;const p=r.players.find(x=>x.id===socket.id);if(!p)return;
+    p.voiceOn=!!payload.voiceOn;
+    socket.to(r.code).emit('voice:state',{playerId:socket.id,voiceOn:p.voiceOn});
+    emitRoom(r);
+  });
+
+  socket.on('voice:chunk',(payload={})=>{
+    const r=roomOf(socket);if(!r)return;
+    const p=r.players.find(x=>x.id===socket.id);if(!p||p.connected===false)return;
+    const raw=payload.pcm;
+    let buf=null;
+    if(Buffer.isBuffer(raw)) buf=raw;
+    else if(raw instanceof ArrayBuffer) buf=Buffer.from(raw);
+    else if(ArrayBuffer.isView(raw)) buf=Buffer.from(raw.buffer,raw.byteOffset,raw.byteLength);
+    if(!buf||buf.length<2||buf.length>16*1024)return;
+    const now=Date.now();
+    if(!socket.data.voiceRateAt||now-socket.data.voiceRateAt>=1000){socket.data.voiceRateAt=now;socket.data.voiceRateBytes=0;}
+    socket.data.voiceRateBytes=(socket.data.voiceRateBytes||0)+buf.length;
+    if(socket.data.voiceRateBytes>96*1024)return;
+    if(!p.voiceOn){p.voiceOn=true;socket.to(r.code).emit('voice:state',{playerId:socket.id,voiceOn:true});emitRoom(r);}
+    socket.to(r.code).compress(false).emit('voice:chunk',{from:socket.id,pcm:buf,sampleRate:16000,seq:Number(payload.seq)||0});
+  });
   socket.on('disconnect',()=>softDisconnect(socket));
 });
 

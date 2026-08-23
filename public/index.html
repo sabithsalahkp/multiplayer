@@ -4,16 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#090d18" />
-  <meta name="description" content="Installable multiplayer Snakes & Ladders, Tic Tac Toe and Word Search with live voice and reactions." />
+  <meta name="description" content="Fast multiplayer games with live voice, popup chat and 10 clean meme stickers." />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="PlayVerse" />
   <title>PlayVerse</title>
-  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="manifest" href="/manifest-v12.webmanifest?v=12.0.0" />
   <link rel="icon" href="/icons/icon-192.png" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-  <link rel="stylesheet" href="/style.css?v=10.0.0" />
+  <link rel="stylesheet" href="/style-v12.css?v=12.0.0" />
 </head>
 <body>
   <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div><div class="grain"></div>
@@ -53,14 +53,12 @@
           <button id="installTopBtn" class="icon-btn hidden" type="button"><span>↓</span><b>INSTALL</b></button>
           <button id="micBtn" class="icon-btn" type="button"><span>🎙</span><b>MIC OFF</b></button>
           <button id="speakerBtn" class="icon-btn on" type="button"><span>🔊</span><b>SPEAKER ON</b></button>
-          <button id="soundBtn" class="icon-btn on" type="button"><span>♪</span><b>SFX ON</b></button>
-          <button id="chatJumpBtn" class="icon-btn chat-jump" type="button"><span>💬</span><b>CHAT</b><i id="chatUnread" class="chat-unread hidden">0</i></button>
           <button id="leaveBtn" class="icon-btn danger" type="button"><span>↗</span><b>LEAVE</b></button>
         </div>
       </header>
 
       <div class="workspace">
-        <aside class="sidebar glass">
+        <aside id="roomPanel" class="sidebar room-panel glass" aria-hidden="true">
           <div class="side-title"><span>GAMES</span><small>Host switches</small></div>
           <nav id="gameNav" class="game-nav">
             <button data-game="snakes" class="active" type="button"><span>🐍</span><div><b>Snakes & Ladders</b><small>2–6 players</small></div></button>
@@ -133,31 +131,33 @@
             </section>
           </div>
 
-          <div class="social-grid">
-            <section class="reactions glass">
-              <div class="reaction-title"><b>FUNNY REACTIONS</b><small>Tap a sticker — everyone in the room sees it</small></div>
-              <div id="stickerTray" class="sticker-tray"></div>
-            </section>
-
-            <section id="chatPanel" class="chat-panel glass" aria-label="Live room messages">
-              <div class="chat-head"><div><b>LIVE CHAT</b><small>Messages appear instantly while you play</small></div><span id="chatLiveDot">LIVE</span></div>
-              <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty">No messages yet. Say hi.</div></div>
-              <form id="chatForm" class="chat-form" autocomplete="off">
-                <input id="chatInput" maxlength="280" placeholder="Message your friends…" aria-label="Message" />
-                <button id="chatSendBtn" type="submit" aria-label="Send message">SEND</button>
-              </form>
-            </section>
-          </div>
+          <section class="reactions glass meme-reactions">
+            <div class="reaction-title"><b>MEME STICKERS</b><small>10 clean meme reactions — tap to send</small></div>
+            <div id="stickerTray" class="sticker-tray"></div>
+          </section>
         </section>
       </div>
     </section>
   </main>
+  <button id="roomPanelToggle" class="room-panel-toggle hidden" type="button" aria-label="Open games and players" aria-expanded="false"><span>ROOM</span><small id="roomPanelCount">0/6</small><b>›</b></button>
+  <div id="roomPanelBackdrop" class="room-panel-backdrop"></div>
+  <button id="chatPeek" class="chat-peek hidden" type="button" aria-label="Open latest message"><b></b><span></span></button>
+  <button id="chatFab" class="chat-fab hidden" type="button" aria-label="Open live chat" aria-expanded="false"><span>CHAT</span><i id="chatUnread" class="chat-unread hidden">0</i></button>
+  <div id="chatBackdrop" class="chat-backdrop"></div>
+  <aside id="chatDrawer" class="chat-drawer" aria-label="Live room messages" aria-hidden="true">
+    <div class="chat-head"><div><b>LIVE CHAT</b><small>Message while you keep playing</small></div><div class="chat-head-actions"><span>LIVE</span><button id="chatCloseBtn" type="button" aria-label="Close live chat">×</button></div></div>
+    <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty">No messages yet. Say hi.</div></div>
+    <form id="chatForm" class="chat-form" autocomplete="off">
+      <input id="chatInput" maxlength="280" placeholder="Message your friends…" aria-label="Message" />
+      <button id="chatSendBtn" type="submit" aria-label="Send message">SEND</button>
+    </form>
+  </aside>
 
   <div id="toastStack" class="toast-stack"></div>
-  <div id="stickerPopup" class="sticker-popup hidden"><div class="burst"></div><div class="sticker-emoji-pop hidden" aria-hidden="true"></div><img alt="Reaction meme" /><b></b><small></small></div>
+  <div id="stickerPopup" class="sticker-popup hidden"><div class="burst"></div><img alt="Reaction meme" /><b></b><small></small></div>
   <div id="winnerModal" class="winner-modal hidden"><div class="winner-card"><div class="trophy">♛</div><span>WINNER</span><h2 id="winnerName">Player</h2><p id="winnerGame">Game</p><button id="winnerCloseBtn" class="primary compact" type="button">NICE!</button></div></div>
   <div id="confettiLayer" class="confetti-layer"></div>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js?v=10.0.0"></script>
+  <script src="/app-v12.js?v=12.0.0"></script>
 </body>
 </html>
