@@ -39,86 +39,59 @@ function sfx(name){
 }
 document.addEventListener('pointerdown',ensureAudio,{once:true});
 
-// ---------- ACCOUNT, PAYMENT AND PRIVATE ROOM ENTRY ----------
-const landing=$('landing'),gameShell=$('gameShell'),createBtn=$('createBtn'),joinBtn=$('joinBtn'),landingError=$('landingError');
-const guestNameInput=$('guestNameInput'),hostNameInput=$('hostNameInput'),roomCodeInput=$('roomCodeInput');
+// ---------- BASIC UI ----------
+const landing=$('landing'),gameShell=$('gameShell'),createBtn=$('createBtn'),nameInput=$('nameInput'),landingError=$('landingError');
+const roomsList=$('roomsList'),roomsEmpty=$('roomsEmpty'),roomsRefreshBtn=$('roomsRefreshBtn');
 const playerCount=$('playerCount'),playersList=$('playersList'),gameNav=$('gameNav'),activeGameLabel=$('activeGameLabel'),toastStack=$('toastStack');
-const RESUME_KEY='playverse_room_resume_v1',PENDING_ORDER_KEY='playverse_pending_order_v1';
-let accountUser=null,authMode='login',resumeInFlight=false,publicConfig=null;
-function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;toastStack.appendChild(d);setTimeout(()=>d.remove(),3200)}
-function ackEmit(event,payload={}){return new Promise(resolve=>socket.timeout(9000).emit(event,payload,(error,res)=>resolve(error?{ok:false,error:'Server did not respond. Try again.'}:res||{ok:false,error:'No response'})))}
+let publicRooms=[];
+function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;toastStack.appendChild(d);setTimeout(()=>d.remove(),2800)}
+function ackEmit(event,payload={}){return new Promise(resolve=>socket.emit(event,payload,res=>resolve(res||{ok:false,error:'No response'})))}
 function displayGameName(g){return {snakes:'Snakes & Ladders',tictactoe:'Tic Tac Toe',wordsearch:'Word Search'}[g]||g}
-async function api(url,options={}){const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})},credentials:'same-origin'});let data={};try{data=await response.json()}catch{}if(!response.ok&&!data.error)data.error='Request failed.';return{response,data}}
-function switchEntry(tab){
-  const join=tab==='join';$('joinPanel').classList.toggle('hidden',!join);$('hostPanel').classList.toggle('hidden',join);$('joinTabBtn').classList.toggle('active',join);$('hostTabBtn').classList.toggle('active',!join);$('joinTabBtn').setAttribute('aria-selected',String(join));$('hostTabBtn').setAttribute('aria-selected',String(!join));landingError.textContent='';
+function updateConn(ok){createBtn.disabled=!ok;$('connectionText').textContent=ok?'Game server connected':'Connecting…';document.querySelector('.connection')?.classList.toggle('online',ok);renderLobbyRooms()}
+function getPlayerName(){return nameInput.value.trim().slice(0,20)}
+function roomStateLabel(room){
+  if(room.game==='snakes')return room.status==='playing'?'Playing':'Waiting';
+  if(room.game==='tictactoe')return room.status==='playing'?'Playing':'Ready';
+  return room.status==='won'?'Finished':'Playing';
 }
-$('joinTabBtn').addEventListener('click',()=>switchEntry('join'));$('hostTabBtn').addEventListener('click',()=>switchEntry('host'));
-if(new URLSearchParams(location.search).get('mode')==='host')switchEntry('host');
-function updateEntryButtons(){joinBtn.disabled=!socket.connected||guestNameInput.value.trim().length<1||roomCodeInput.value.length!==6;createBtn.disabled=!socket.connected||!accountUser?.subscription?.active||hostNameInput.value.trim().length<1}
-function updateConn(ok){$('connectionText').textContent=ok?'Game server connected':'Connecting…';document.querySelector('.connection')?.classList.toggle('online',ok);$('reconnectBanner').classList.toggle('hidden',ok||!roomState);updateEntryButtons()}
-function setAuthMode(mode){authMode=mode;const register=mode==='register';$('loginModeBtn').classList.toggle('active',!register);$('registerModeBtn').classList.toggle('active',register);$('displayNameRow').classList.toggle('hidden',!register);$('legalAcceptRow').classList.toggle('hidden',!register);$('authSubmitBtn').textContent=register?'Create Host Account':'Sign In';$('authPassword').autocomplete=register?'new-password':'current-password';$('authError').textContent=''}
-$('loginModeBtn').addEventListener('click',()=>setAuthMode('login'));$('registerModeBtn').addEventListener('click',()=>setAuthMode('register'));
-function formatDate(value){if(!value)return'';return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',year:'numeric'}).format(new Date(value))}
-function renderAccount(){
-  $('authGate').classList.toggle('hidden',!!accountUser);$('hostAccount').classList.toggle('hidden',!accountUser);
-  if(accountUser){
-    $('accountEmail').textContent=accountUser.email;hostNameInput.value=hostNameInput.value||accountUser.displayName||'';
-    const active=!!accountUser.subscription?.active,box=$('subscriptionStatus'),paymentReady=publicConfig?.paymentReady!==false;box.classList.toggle('active',active);$('planStatusText').textContent=active?'Host Pass active':'No active Host Pass';$('planExpiryText').textContent=active?`Valid until ${formatDate(accountUser.subscription.expiresAt)}`:'Subscribe to create a private room';$('subscribeBtn').disabled=!paymentReady;$('subscribeBtn').querySelector('span').textContent=!paymentReady?'Payment setup pending':active?'Extend Host Pass by 30 days':'Get 30-day Host Pass';$('subscribeBtn').querySelector('b').textContent=paymentReady?'Pay ₹49':'Unavailable';
+function renderLobbyRooms(){
+  if(!roomsList||!roomsEmpty)return;
+  roomsList.innerHTML='';
+  const rooms=(publicRooms||[]).filter(r=>r.playerCount<r.maxPlayers);
+  roomsEmpty.classList.toggle('hidden',rooms.length>0);
+  for(const room of rooms){
+    const btn=document.createElement('button');btn.type='button';btn.className='room-card';btn.dataset.roomId=room.id;btn.disabled=!socket.connected;
+    const avatar=document.createElement('span');avatar.className='room-avatar';avatar.textContent=(room.hostName||'P').trim().charAt(0).toUpperCase()||'P';
+    const info=document.createElement('span');info.className='room-info';
+    const name=document.createElement('b');name.textContent=room.hostName||'Player';
+    const meta=document.createElement('small');meta.textContent=`${displayGameName(room.game)} · ${room.playerCount}/${room.maxPlayers} players`;
+    info.append(name,meta);
+    const action=document.createElement('span');action.className='room-join';action.textContent='JOIN';
+    btn.append(avatar,info,action);roomsList.appendChild(btn);
   }
-  updateEntryButtons();
 }
-async function loadMe(){try{const{data}=await api('/api/auth/me',{method:'GET',headers:{}});accountUser=data.user||null;renderAccount();return accountUser}catch{accountUser=null;renderAccount();return null}}
-$('authForm').addEventListener('submit',async event=>{
-  event.preventDefault();const button=$('authSubmitBtn'),error=$('authError');button.disabled=true;error.textContent='';
-  const payload={email:$('authEmail').value.trim(),password:$('authPassword').value};
-  if(authMode==='register'){payload.displayName=$('authDisplayName').value.trim();payload.acceptLegal=$('legalAccept').checked;}
-  try{const{data}=await api(`/api/auth/${authMode==='register'?'register':'login'}`,{method:'POST',body:JSON.stringify(payload)});if(!data.ok){error.textContent=data.error||'Could not continue.';return}accountUser=data.user;renderAccount();toast(authMode==='register'?'Account created.':'Signed in.');}
-  catch{error.textContent='Could not connect. Try again.'}finally{button.disabled=false}
-});
-$('logoutBtn').addEventListener('click',async()=>{await api('/api/auth/logout',{method:'POST',body:'{}'});accountUser=null;renderAccount();setAuthMode('login');toast('Signed out.');});
-function loadRazorpay(){if(window.Razorpay)return Promise.resolve();return new Promise((resolve,reject)=>{const existing=document.querySelector('script[data-razorpay]');if(existing){existing.addEventListener('load',resolve,{once:true});existing.addEventListener('error',reject,{once:true});return}const script=document.createElement('script');script.src='https://checkout.razorpay.com/v1/checkout.js';script.async=true;script.dataset.razorpay='true';script.onload=resolve;script.onerror=reject;document.head.appendChild(script)})}
-async function pollPayment(orderId){
-  for(let i=0;i<15;i++){await new Promise(r=>setTimeout(r,2000));const{data}=await api(`/api/payments/status?order_id=${encodeURIComponent(orderId)}`,{method:'GET',headers:{}});if(data.status==='paid'){sessionStorage.removeItem(PENDING_ORDER_KEY);accountUser=data.user;renderAccount();toast('Host Pass activated.');return true}}
-  return false;
+async function refreshRooms(){
+  try{const r=await fetch('/api/rooms',{cache:'no-store'}),d=await r.json();if(d.ok){publicRooms=d.rooms||[];renderLobbyRooms()}}catch{}
 }
-$('subscribeBtn').addEventListener('click',async()=>{
-  const button=$('subscribeBtn');button.disabled=true;landingError.textContent='';
-  try{
-    const{data}=await api('/api/payments/order',{method:'POST',body:'{}'});if(!data.ok){landingError.textContent=data.error||'Could not start payment.';return}
-    await loadRazorpay();sessionStorage.setItem(PENDING_ORDER_KEY,data.checkout.orderId);
-    const checkout=new window.Razorpay({...data.checkout,modal:{ondismiss:()=>{button.disabled=false}},handler:async response=>{
-      const result=await api('/api/payments/verify',{method:'POST',body:JSON.stringify(response)});if(result.data.user){accountUser=result.data.user;renderAccount();sessionStorage.removeItem(PENDING_ORDER_KEY);toast('Host Pass activated.');}else if(result.data.pending){toast(result.data.message);pollPayment(data.checkout.orderId);}else{landingError.textContent=result.data.error||'Payment verification is pending.'}button.disabled=false;
-    }});
-    checkout.on('payment.failed',event=>{landingError.textContent=event?.error?.description||'Payment failed. No pass was activated.';button.disabled=false});checkout.open();
-  }catch{landingError.textContent='Could not open secure checkout. Try again.'}finally{if(!window.Razorpay)button.disabled=false}
-});
-function saveResume(code,resumeToken){localStorage.setItem(RESUME_KEY,JSON.stringify({code,resumeToken,savedAt:Date.now()}))}
-function clearResume(){localStorage.removeItem(RESUME_KEY)}
-function getResume(){try{const value=JSON.parse(localStorage.getItem(RESUME_KEY)||'null');return value?.code&&value?.resumeToken?value:null}catch{return null}}
-async function tryResume(){
-  if(resumeInFlight||roomState)return;const saved=getResume();if(!saved)return;resumeInFlight=true;
-  const result=await ackEmit('room:resume',saved);resumeInFlight=false;
-  if(result.ok)enterRoom(result.room,result.resumeToken,true);else clearResume();
+async function joinPublicRoom(roomId){
+  const name=getPlayerName();if(!name){landingError.textContent='Enter your name first.';nameInput.focus();return}
+  landingError.textContent='';
+  const r=await ackEmit('room:join',{name,roomId});
+  if(!r.ok){landingError.textContent=r.error||'Could not join room.';refreshRooms();return}
+  enterRoom(r.room);
 }
-joinBtn.addEventListener('click',async()=>{
-  const name=guestNameInput.value.trim().slice(0,20),code=roomCodeInput.value.toUpperCase();if(!name)return guestNameInput.focus();if(code.length!==6)return roomCodeInput.focus();landingError.textContent='';joinBtn.disabled=true;
-  const result=await ackEmit('room:join',{name,code});if(!result.ok){landingError.textContent=result.error||'Could not join room.';updateEntryButtons();return}enterRoom(result.room,result.resumeToken);
-});
-createBtn.addEventListener('click',async()=>{
-  const name=hostNameInput.value.trim().slice(0,20);if(!name)return hostNameInput.focus();landingError.textContent='';createBtn.disabled=true;
-  const result=await ackEmit('room:create',{name});if(!result.ok){landingError.textContent=result.error||'Could not create room.';if(result.code==='AUTH_REQUIRED'||result.code==='SUBSCRIPTION_REQUIRED')await loadMe();updateEntryButtons();return}enterRoom(result.room,result.resumeToken);
-});
-for(const input of [guestNameInput,hostNameInput])input.addEventListener('input',updateEntryButtons);roomCodeInput.addEventListener('input',()=>{roomCodeInput.value=roomCodeInput.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);updateEntryButtons()});roomCodeInput.addEventListener('keydown',event=>{if(event.key==='Enter'&&!joinBtn.disabled)joinBtn.click()});
-socket.on('connect',()=>{updateConn(true);tryResume()});socket.on('disconnect',()=>{updateConn(false);if(roomState)toast('Connection lost. Your place is saved while reconnecting.')});socket.on('connect_error',()=>updateConn(false));updateConn(socket.connected);
+socket.on('connect',()=>{updateConn(true);refreshRooms()});socket.on('disconnect',()=>{updateConn(false);if(roomState)toast('Connection lost. Reconnecting…')});socket.on('connect_error',()=>updateConn(false));updateConn(socket.connected);
+socket.on('lobby:update',d=>{publicRooms=d?.rooms||[];renderLobbyRooms()});
 fetch('/config').then(r=>r.json()).then(d=>{appSettings={...appSettings,...(d.settings||{})};sfxOn=appSettings.soundDefaultOn!==false;renderAudioButtons()}).catch(()=>{});
-fetch('/api/public-config').then(r=>r.json()).then(d=>{publicConfig=d;document.querySelectorAll('[data-business-name]').forEach(el=>el.textContent=d.business?.name||'Quartz Web Solutions');$('subscribeBtn').title=d.paymentReady?'':'Connect PostgreSQL and Razorpay server keys first.';renderAccount()}).catch(()=>{});
 fetch('/api/stickers').then(r=>r.json()).then(d=>{stickerList=d.stickers||[];renderStickers()}).catch(()=>{});
-socket.on('game:settings',s=>{appSettings={...appSettings,...s};renderPlayers();renderAudioButtons()});socket.on('stickers:update',s=>{stickerList=s||[];renderStickers()});socket.on('room:notice',msg=>toast(msg));
-socket.on('room:closed',data=>{clearResume();roomState=null;toast(data?.message||'Room ended.');setTimeout(()=>{location.href='/'},900)});
-$('leaveBtn').addEventListener('click',()=>{clearResume();socket.emit('room:leave');roomState=null;location.href='/'});
-$('roomCodeBtn').addEventListener('click',async()=>{const code=roomState?.code;if(!code)return;try{await navigator.clipboard.writeText(code);toast('Room code copied.')}catch{const input=document.createElement('input');input.value=code;document.body.appendChild(input);input.select();document.execCommand('copy');input.remove();toast('Room code copied.')}});
-function enterRoom(room,resumeToken,resumed=false){roomState=room;if(resumeToken)saveResume(room.code,resumeToken);$('roomCodeText').textContent=room.code;landing.classList.add('hidden');gameShell.classList.remove('hidden');$('reconnectBanner').classList.add('hidden');visualPositions.clear();room.players.forEach(p=>visualPositions.set(p.id,p.position||1));renderAll();if(!resumed)sfx('join');history.replaceState({},'',room.path||'/snakes')}
-const pendingOrder=sessionStorage.getItem(PENDING_ORDER_KEY);loadMe().then(user=>{if(user&&pendingOrder)pollPayment(pendingOrder)});if(socket.connected)tryResume();
+socket.on('game:settings',s=>{appSettings={...appSettings,...s};renderPlayers();renderAudioButtons();renderLobbyRooms()});socket.on('stickers:update',s=>{stickerList=s||[];renderStickers()});socket.on('room:notice',msg=>toast(msg));
+
+createBtn.addEventListener('click',async()=>{const name=getPlayerName();if(!name){landingError.textContent='Enter your name.';nameInput.focus();return}landingError.textContent='';const r=await ackEmit('room:create',{name});if(!r.ok)return landingError.textContent=r.error||'Could not create room.';enterRoom(r.room)});
+roomsList.addEventListener('click',e=>{const btn=e.target.closest('.room-card');if(btn&&!btn.disabled)joinPublicRoom(btn.dataset.roomId)});
+roomsRefreshBtn?.addEventListener('click',()=>{roomsRefreshBtn.classList.add('spinning');refreshRooms().finally(()=>setTimeout(()=>roomsRefreshBtn.classList.remove('spinning'),350))});
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')createBtn.click()});
+$('leaveBtn').addEventListener('click',()=>{socket.emit('room:leave');roomState=null;location.href='/'});
+function enterRoom(room){roomState=room;landing.classList.add('hidden');gameShell.classList.remove('hidden');visualPositions.clear();room.players.forEach(p=>visualPositions.set(p.id,p.position||1));renderAll();sfx('join');history.replaceState({},'',room.path||'/snakes')}
 
 // ---------- INSTALLABLE PWA ----------
 let deferredInstallPrompt=null;
@@ -137,7 +110,6 @@ if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.se
 
 socket.on('room:state',state=>{
   const old=roomState;roomState=state;
-  $('roomCodeText').textContent=state.code||'------';if(socket.connected)$('reconnectBanner').classList.add('hidden');
   for(const p of state.players)if(!visualPositions.has(p.id))visualPositions.set(p.id,p.position||1);
   for(const id of [...visualPositions.keys()])if(!state.players.some(p=>p.id===id))visualPositions.delete(id);
   if(old?.snakes?.status!=='playing'&&state.snakes.status==='playing'&&!state.snakes.lastMove){state.players.forEach(p=>visualPositions.set(p.id,p.position||1));}
@@ -150,7 +122,7 @@ function renderAll(){if(!roomState)return;renderPlayers();switchGameView(roomSta
 function renderPlayers(){
   if(!roomState)return;playerCount.textContent=`${roomState.players.length}/${roomState.settings?.maxPlayers||appSettings.maxPlayers}`;playersList.innerHTML='';
   const turnId=roomState.activeGame==='snakes'?roomState.players[roomState.snakes.turnIndex]?.id:roomState.activeGame==='tictactoe'?roomState.players[roomState.ttt.turnIndex]?.id:roomState.players[roomState.wordsearch.turnIndex]?.id;
-  roomState.players.forEach(p=>{const row=document.createElement('div');row.className='player-row'+(p.id===turnId?' active':'')+(p.connected===false?' offline':'');const pawn=document.createElement('span');pawn.className='mini-pawn';pawn.style.setProperty('--piece',colors[p.colorIndex%colors.length]);const meta=document.createElement('div');meta.className='player-meta';const b=document.createElement('b');b.textContent=p.name;const sm=document.createElement('small');sm.textContent=p.connected===false?'Reconnecting…':p.id===roomState.hostId?'Host':'Ready';meta.append(b,sm);row.append(pawn,meta);if(p.id===socket.id){const y=document.createElement('span');y.className='you-badge';y.textContent='YOU';row.append(y)}playersList.appendChild(row)})
+  roomState.players.forEach(p=>{const row=document.createElement('div');row.className='player-row'+(p.id===turnId?' active':'');const pawn=document.createElement('span');pawn.className='mini-pawn';pawn.style.setProperty('--piece',colors[p.colorIndex%colors.length]);const meta=document.createElement('div');meta.className='player-meta';const b=document.createElement('b');b.textContent=p.name;const sm=document.createElement('small');sm.textContent=p.id===roomState.hostId?'Host':'Ready';meta.append(b,sm);row.append(pawn,meta);if(p.id===socket.id){const y=document.createElement('span');y.className='you-badge';y.textContent='YOU';row.append(y)}playersList.appendChild(row)})
 }
 function switchGameView(game,push){Object.entries(gameViews).forEach(([g,v])=>v.classList.toggle('hidden',g!==game));[...gameNav.querySelectorAll('button')].forEach(b=>b.classList.toggle('active',b.dataset.game===game));activeGameLabel.textContent=displayGameName(game);if(push&&roomState?.path&&location.pathname!==roomState.path)history.pushState({},'',roomState.path)}
 gameNav.addEventListener('click',async e=>{const b=e.target.closest('button[data-game]');if(!b||!roomState)return;if(socket.id!==roomState.hostId)return toast('Only the host can switch games.');const r=await ackEmit('game:select',{game:b.dataset.game});if(!r.ok)toast(r.error||'Could not switch game')});

@@ -1,30 +1,26 @@
-PLAYVERSE V10 — AUTOMATED QA REPORT
+PLAYVERSE V9 QA REPORT
 
-PASS — JavaScript syntax: server, game client, service worker, legal-page client and account-deletion client.
-PASS — PWA manifest parses and includes standalone display, app ID, icons, categories and shortcuts.
-PASS — 82 unique main-page element IDs; no duplicates.
-PASS — every app.js element reference resolves to an element in index.html.
-PASS — all 15 required app, icon and policy assets exist.
-PASS — all public routes return HTTP 200: home, health, pricing, terms, privacy, refunds, shipping, contact, data safety, account deletion and manifest.
-PASS — host registration creates a secure session.
-PASS — an unpaid host cannot create a room.
-PASS — one verified ₹49 order activates a 30-day Host Pass exactly once.
-PASS — replaying the same verified order does not extend access twice.
-PASS — a subscribed host creates a six-character private room code.
-PASS — an unauthenticated, unsubscribed guest joins free with the code.
-PASS — /api/rooms never exposes private rooms.
-PASS — production dependency audit found 0 vulnerabilities.
-PASS — all original game-state checks remain server-controlled.
-PASS — reconnection tokens are random, kept client-side and not exposed in public room state.
-PASS — disconnected players are held for two minutes and can resume with a remapped live socket ID.
-PASS — Razorpay key secret and webhook secret remain server-only.
-PASS — payment verification checks stored order ownership, HMAC signature, amount, currency, order ID and captured status.
-PASS — webhook activation is idempotent and validates stored amount/currency before granting access.
-PASS — live payments are blocked when PostgreSQL is not configured.
-PASS — admin APIs are disabled without ADMIN_TOKEN and protected when enabled.
+Automated checks completed before packaging:
 
-Automated tests: 6 passed, 0 failed.
-Version: 10.0.0
+PASS — 40 frontend render cycles across 360×800, 390×844, 412×915 and 1024×900.
+PASS — no JavaScript page errors in those 40 cycles.
+PASS — no horizontal page overflow in those 40 cycles.
+PASS — Snakes & Ladders renders 100 cells, 8 snakes and 8 ladders.
+PASS — public room browser renders a host name and join action without exposing a room code.
+PASS — mobile room browser has no horizontal scrolling.
+PASS — server room flow: create -> live public listing -> join by room id -> player count update -> leave update.
+PASS — opponent cannot roll during dice animation.
+PASS — opponent cannot roll during pawn/snake/ladder movement.
+PASS — opponent roll unlocks after the full previous move finishes.
+PASS — Word Search schedules a server-controlled 60-second turn timer.
+PASS — Word Search timer is visually above the playable grid.
+PASS — Word Search initial timer displays 01:00, not 00:60.
+PASS — Word Search grid renders 100 cells and has no mobile horizontal overflow.
+PASS — Tic Tac Toe renders 9 equal-size cells; X/O content does not resize the board.
+PASS — PWA manifest parses successfully.
+PASS — service-worker.js passes JavaScript syntax validation.
+PASS — 192px, 512px and Apple touch icons are present.
+PASS — app.js and server.js pass Node JavaScript syntax validation.
+PASS — all app.js element IDs exist in index.html and there are no duplicate HTML IDs.
 
-NOT TESTED WITH REAL MONEY
-Razorpay Test Mode and Live Mode transactions require the owner's Razorpay keys, webhook secret, final HTTPS domain and persistent PostgreSQL database. Complete MANUAL-CHANGES.txt before going live.
+Version: 9.0.0

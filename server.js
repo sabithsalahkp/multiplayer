@@ -3,47 +3,14 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
-const cookie = require('cookie');
-const helmet = require('helmet');
-const { rateLimit } = require('express-rate-limit');
 const { Server } = require('socket.io');
-const store = require('./lib/store');
-const razorpay = require('./lib/razorpay-service');
-const {
-  SESSION_COOKIE,
-  normalizeEmail,
-  validEmail,
-  cleanDisplayName,
-  hashToken,
-  newSession,
-  subscriptionInfo,
-  publicUser,
-  safeEqualHex
-} = require('./lib/security');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  connectionStateRecovery: { maxDisconnectionDuration: 120_000, skipMiddlewares: false },
-  pingInterval: 20_000,
-  pingTimeout: 25_000
-});
-const PORT = Number(process.env.PORT || 3000);
+const io = new Server(server, { cors: { origin: '*' } });
+const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
-const VERSION = '10.0.0';
-const PLAN_AMOUNT = 4_900;
-const PLAN_CURRENCY = 'INR';
-const PLAN_DAYS = 30;
-const RECONNECT_GRACE_MS = 120_000;
-const isProduction = process.env.NODE_ENV === 'production';
-const business = {
-  name: String(process.env.PUBLIC_BUSINESS_NAME || 'Quartz Web Solutions').trim(),
-  supportEmail: String(process.env.PUBLIC_SUPPORT_EMAIL || 'replace-before-live@example.com').trim(),
-  supportPhone: String(process.env.PUBLIC_SUPPORT_PHONE || '+91 00000 00000').trim(),
-  address: String(process.env.PUBLIC_BUSINESS_ADDRESS || 'Malappuram, Kerala, India').trim()
-};
 
 function readJson(name, fallback) {
   try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, name), 'utf8')); }
@@ -55,7 +22,6 @@ let settings = readJson('settings.json', {
 });
 let stickers = readJson('stickers.json', []);
 const rooms = new Map();
-const disconnectTimers = new Map();
 const WORD_TURN_MS = 60_000;
 
 const GAME_PATHS = { snakes: '/snakes', tictactoe: '/tic-tac-toe', wordsearch: '/word-search' };
@@ -78,8 +44,20 @@ function publicStickers(){ return stickers.filter(s => s.enabled).sort((a,b)=>(a
 function roomOf(socket){ return rooms.get(socket.data.roomCode); }
 function notice(r,msg){ io.to(r.code).emit('room:notice',msg); }
 function emitRoom(r){ io.to(r.code).emit('room:state', pubRoom(r)); }
-function lobbyRooms(){ return []; }
-function broadcastLobby(){ /* Private room codes are never broadcast. */ }
+function lobbyRooms(){
+  return [...rooms.values()]
+    .filter(r=>r.players.length>0 && r.players.length < settings.maxPlayers)
+    .sort((a,b)=>b.createdAt-a.createdAt)
+    .map(r=>{
+      const host=r.players.find(p=>p.id===r.hostId)||r.players[0];
+      const status=r.activeGame==='snakes'?r.snakes.status:r.activeGame==='tictactoe'?r.ttt.status:r.wordsearch.status;
+      return {
+        id:r.code, hostName:host?.name||'Player', playerCount:r.players.length, maxPlayers:settings.maxPlayers,
+        game:r.activeGame, status, createdAt:r.createdAt
+      };
+    });
+}
+function broadcastLobby(){ io.emit('lobby:update',{rooms:lobbyRooms()}); }
 
 function seeded(seed){
   let x = seed >>> 0;
@@ -117,9 +95,9 @@ function makeWordSearch(seed = crypto.randomInt(1, 2**30)){
   return { status:'playing', seed, size, grid:grid.flat(), words:words.map(w=>w.word), answers:words, found:[], turnIndex:0, winnerId:null, round:1, turnStartedAt:0, turnDeadline:0, lastTimeoutPlayerId:null };
 }
 
-function initRoom(c, host, ownerUserId){
+function initRoom(c, host){
   return {
-    code:c, hostId:host.id, ownerUserId, activeGame:'snakes', players:[host],
+    code:c, hostId:host.id, activeGame:'snakes', players:[host],
     snakes:{status:'lobby',turnIndex:0,winnerId:null,lastRoll:null,lastMove:null,moveSeq:0,rolling:false,phase:'idle',turnReadyAt:0},
     ttt:{status:'ready',board:Array(9).fill(null),turnIndex:0,winnerId:null,round:1},
     wordsearch:makeWordSearch(), createdAt:Date.now()
@@ -159,39 +137,18 @@ function beginWordTurn(r){
 function pubRoom(r){
   return {
     code:r.code, hostId:r.hostId, activeGame:r.activeGame, path:GAME_PATHS[r.activeGame], settings:publicSettings(),
-    players:r.players.map(p=>({id:p.id,name:p.name,colorIndex:p.colorIndex,position:p.position,connected:p.connected!==false})),
+    players:r.players.map(p=>({id:p.id,name:p.name,colorIndex:p.colorIndex,position:p.position})),
     snakes:{...r.snakes}, ttt:{...r.ttt,board:[...r.ttt.board]}, wordsearch:pubWordSearch(r.wordsearch)
   };
 }
-function disconnectKey(roomCode, reconnectToken){ return `${roomCode}:${reconnectToken}`; }
-function clearDisconnectTimer(roomCode, reconnectToken){
-  const key=disconnectKey(roomCode,reconnectToken),timer=disconnectTimers.get(key);
-  if(timer)clearTimeout(timer);disconnectTimers.delete(key);
-}
-function closeRoom(r,message='The host ended this room.'){
-  if(!r||!rooms.has(r.code))return;
-  stopWordTurn(r);
-  for(const p of r.players)clearDisconnectTimer(r.code,p.reconnectToken);
-  io.to(r.code).emit('room:closed',{message});
-  rooms.delete(r.code);
-}
-function remapPlayerId(r,oldId,newId){
-  if(oldId===newId)return;
-  if(r.hostId===oldId)r.hostId=newId;
-  if(r.snakes.winnerId===oldId)r.snakes.winnerId=newId;
-  if(r.snakes.lastMove?.playerId===oldId)r.snakes.lastMove.playerId=newId;
-  if(r.ttt.winnerId===oldId)r.ttt.winnerId=newId;
-  if(r.wordsearch.winnerId===oldId)r.wordsearch.winnerId=newId;
-  if(r.wordsearch.lastTimeoutPlayerId===oldId)r.wordsearch.lastTimeoutPlayerId=newId;
-  for(const found of r.wordsearch.found)if(found.playerId===oldId)found.playerId=newId;
-}
-function removePlayer(r,idx,reason='left'){
-  if(!r||idx<0||idx>=r.players.length)return;
-  const affectedTttPlayer=idx<2,[gone]=r.players.splice(idx,1);
-  clearDisconnectTimer(r.code,gone.reconnectToken);
-  io.to(r.code).emit('rtc:peer-left',{peerId:gone.id});
-  if(gone.id===r.hostId){closeRoom(r,reason==='timeout'?'The host did not reconnect in time.':'The host ended this room.');return;}
-  if(!r.players.length){closeRoom(r,'Room ended.');return;}
+function leaveRoom(socket){
+  const r=roomOf(socket); if(!r) return;
+  const idx=r.players.findIndex(p=>p.id===socket.id); if(idx<0) return;
+  const affectedTttPlayer=idx<2;
+  const [gone]=r.players.splice(idx,1); socket.leave(r.code); socket.data.roomCode=null;
+  socket.to(r.code).emit('rtc:peer-left',{peerId:socket.id});
+  if(!r.players.length){ stopWordTurn(r); rooms.delete(r.code); broadcastLobby(); return; }
+  if(r.hostId===socket.id) r.hostId=r.players[0].id;
   r.snakes.turnIndex=Math.min(r.snakes.turnIndex,Math.max(0,r.players.length-1));
   if(affectedTttPlayer){r.ttt={status:'ready',board:Array(9).fill(null),turnIndex:0,winnerId:null,round:(r.ttt.round||1)+1};}
   else r.ttt.turnIndex=Math.min(r.ttt.turnIndex,Math.min(1,Math.max(0,r.players.length-1)));
@@ -199,28 +156,8 @@ function removePlayer(r,idx,reason='left'){
   if(r.snakes.status==='playing'&&r.players.length<settings.minPlayers){
     r.snakes.status='lobby';r.snakes.phase='idle';r.snakes.rolling=false;r.snakes.winnerId=null;r.snakes.lastMove=null;r.snakes.lastRoll=null;r.snakes.moveSeq++;r.snakes.turnReadyAt=0;r.snakes.turnIndex=0;
   }
-  if(r.activeGame==='wordsearch')beginWordTurn(r);
-  notice(r,`${gone.name} ${reason==='timeout'?'lost connection':'left'}.`);emitRoom(r);
-}
-function leaveRoom(socket){
-  const r=roomOf(socket); if(!r) return;
-  const idx=r.players.findIndex(p=>p.id===socket.id); if(idx<0) return;
-  socket.leave(r.code);socket.data.roomCode=null;removePlayer(r,idx,'left');
-}
-function scheduleDisconnect(socket){
-  if(socket.data.suppressDisconnect)return;
-  const r=roomOf(socket);if(!r)return;
-  const p=r.players.find(player=>player.id===socket.id);if(!p)return;
-  p.connected=false;p.disconnectedAt=Date.now();
-  io.to(r.code).emit('rtc:peer-left',{peerId:socket.id});emitRoom(r);
-  clearDisconnectTimer(r.code,p.reconnectToken);
-  const key=disconnectKey(r.code,p.reconnectToken);
-  disconnectTimers.set(key,setTimeout(()=>{
-    disconnectTimers.delete(key);
-    const live=rooms.get(r.code);if(!live)return;
-    const idx=live.players.findIndex(player=>player.reconnectToken===p.reconnectToken&&player.connected===false);
-    if(idx>=0)removePlayer(live,idx,'timeout');
-  },RECONNECT_GRACE_MS));
+  if(r.activeGame==='wordsearch') beginWordTurn(r);
+  notice(r,`${gone.name} left.`); emitRoom(r); broadcastLobby();
 }
 function tttWinner(b){ const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; return lines.find(([a,c,d])=>b[a]&&b[a]===b[c]&&b[a]===b[d])||null; }
 function normalizeSelection(start,end,size){
@@ -237,228 +174,44 @@ function normalizeSelection(start,end,size){
 }
 function samePath(a,b){ return a.length===b.length&&a.every((v,i)=>v===b[i]); }
 
-app.set('trust proxy', 1);
-app.disable('x-powered-by');
-app.use(helmet({
-  crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://checkout.razorpay.com'],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      mediaSrc: ["'self'", 'blob:', 'https:'],
-      connectSrc: ["'self'", 'https://api.razorpay.com', 'https://*.razorpay.com', 'wss:'],
-      frameSrc: ["'self'", 'https://api.razorpay.com', 'https://checkout.razorpay.com', 'https://*.razorpay.com'],
-      fontSrc: ["'self'", 'data:'],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      frameAncestors: ["'self'"]
-    }
-  }
-}));
-app.use((_req,res,next)=>{res.setHeader('Permissions-Policy','microphone=(self), camera=(), geolocation=()');next();});
-
-function sessionTokenFromRequest(req) {
-  try { return cookie.parse(req.headers.cookie || '')[SESSION_COOKIE] || ''; }
-  catch { return ''; }
-}
-function setSessionCookie(res, token) {
-  res.cookie(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 30 * 24 * 60 * 60 * 1000
-  });
-}
-function clearSessionCookie(res) {
-  res.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: isProduction, sameSite: 'lax', path: '/' });
-}
-function requireUser(req,res,next){
-  if(!req.user)return res.status(401).json({ok:false,error:'Sign in to continue.'});next();
-}
-function requireSameOrigin(req,res,next){
-  const origin=req.get('origin');
-  if(!origin)return next();
-  const expected=`${req.protocol}://${req.get('host')}`;
-  if(origin!==expected)return res.status(403).json({ok:false,error:'Request origin was rejected.'});
-  next();
-}
-function requireAdmin(req,res,next){
-  const expected=String(process.env.ADMIN_TOKEN||'');
-  if(!expected)return res.status(404).json({ok:false,error:'Admin is disabled.'});
-  const auth=req.get('authorization')||'',supplied=req.get('x-admin-token')||(auth.startsWith('Bearer ')?auth.slice(7):'');
-  if(!safeEqualHex(expected,supplied))return res.status(401).json({ok:false,error:'Admin authentication required.'});
-  next();
-}
-
-app.post('/api/payments/webhook',express.raw({type:'application/json',limit:'256kb'}),async(req,res)=>{
-  try{
-    const signature=req.get('x-razorpay-signature')||'';
-    if(!razorpay.verifyWebhookSignature(req.body,signature))return res.status(400).json({ok:false});
-    const event=JSON.parse(req.body.toString('utf8'));
-    const paymentEntity=event?.payload?.payment?.entity;
-    const orderEntity=event?.payload?.order?.entity;
-    const orderId=paymentEntity?.order_id||orderEntity?.id;
-    if(!orderId)return res.json({ok:true,ignored:true});
-    const local=await store.getPaymentByOrderId(orderId);
-    if(!local)return res.json({ok:true,ignored:true});
-
-    if(event.event==='payment.failed'){
-      await store.markPaymentFailed(orderId);return res.json({ok:true});
-    }
-    if(!['payment.captured','order.paid'].includes(event.event))return res.json({ok:true,ignored:true});
-    const amount=Number(paymentEntity?.amount??orderEntity?.amount_paid);
-    const currency=String(paymentEntity?.currency||orderEntity?.currency||'');
-    const paymentId=String(paymentEntity?.id||'');
-    if(!paymentId||amount!==local.amount||currency!==local.currency)return res.status(400).json({ok:false});
-    await store.activateSubscription({orderId,paymentId});
-    res.json({ok:true});
-  }catch(error){console.error('[webhook]',error);res.status(500).json({ok:false});}
-});
-
 app.use(express.json({limit:'1mb'}));
-app.use(async(req,res,next)=>{
-  try{
-    const token=sessionTokenFromRequest(req);req.sessionToken=token;req.sessionTokenHash=token?hashToken(token):'';
-    req.user=token?await store.getUserBySession(req.sessionTokenHash):null;next();
-  }catch(error){next(error);}
-});
-app.use('/api',requireSameOrigin);
-
-const authLimiter=rateLimit({windowMs:15*60*1000,limit:30,standardHeaders:'draft-8',legacyHeaders:false,message:{ok:false,error:'Too many attempts. Try again later.'}});
-const paymentLimiter=rateLimit({windowMs:10*60*1000,limit:20,standardHeaders:'draft-8',legacyHeaders:false,message:{ok:false,error:'Too many payment attempts. Try again later.'}});
-
-app.get('/api/auth/me',(req,res)=>res.json({ok:true,user:publicUser(req.user)}));
-app.post('/api/auth/register',authLimiter,async(req,res)=>{
-  try{
-    const email=normalizeEmail(req.body?.email),password=String(req.body?.password||''),displayName=cleanDisplayName(req.body?.displayName);
-    if(req.body?.acceptLegal!==true)return res.status(400).json({ok:false,error:'Accept the Terms and Privacy Policy.'});
-    if(!validEmail(email))return res.status(400).json({ok:false,error:'Enter a valid email address.'});
-    if(password.length<8||password.length>128)return res.status(400).json({ok:false,error:'Password must be 8–128 characters.'});
-    if(displayName.length<2)return res.status(400).json({ok:false,error:'Enter your display name.'});
-    const passwordHash=await bcrypt.hash(password,12),user=await store.createUser({email,passwordHash,displayName});
-    const session=newSession();await store.createSession({tokenHash:session.tokenHash,userId:user.id,expiresAt:session.expiresAt});setSessionCookie(res,session.token);
-    res.status(201).json({ok:true,user:publicUser(user)});
-  }catch(error){
-    if(error.code==='23505')return res.status(409).json({ok:false,error:'An account with this email already exists.'});
-    console.error('[register]',error);res.status(500).json({ok:false,error:'Could not create the account.'});
-  }
-});
-app.post('/api/auth/login',authLimiter,async(req,res)=>{
-  try{
-    const email=normalizeEmail(req.body?.email),password=String(req.body?.password||''),user=await store.getUserByEmail(email);
-    if(!user||!(await bcrypt.compare(password,user.passwordHash)))return res.status(401).json({ok:false,error:'Email or password is incorrect.'});
-    const session=newSession();await store.createSession({tokenHash:session.tokenHash,userId:user.id,expiresAt:session.expiresAt});setSessionCookie(res,session.token);
-    res.json({ok:true,user:publicUser(user)});
-  }catch(error){console.error('[login]',error);res.status(500).json({ok:false,error:'Could not sign in.'});}
-});
-app.post('/api/auth/logout',requireUser,async(req,res)=>{await store.deleteSession(req.sessionTokenHash);clearSessionCookie(res);res.json({ok:true});});
-app.delete('/api/auth/account',authLimiter,requireUser,async(req,res)=>{
-  const password=String(req.body?.password||'');
-  if(!(await bcrypt.compare(password,req.user.passwordHash)))return res.status(401).json({ok:false,error:'Password is incorrect.'});
-  for(const room of [...rooms.values()])if(room.ownerUserId===req.user.id)closeRoom(room,'The host account was deleted.');
-  await store.deleteUser(req.user.id);clearSessionCookie(res);res.json({ok:true});
-});
-
-app.post('/api/payments/order',paymentLimiter,requireUser,async(req,res)=>{
-  try{
-    if(!store.isPersistent())return res.status(503).json({ok:false,error:'Payments stay disabled until a persistent database is connected.'});
-    if(!razorpay.isConfigured())return res.status(503).json({ok:false,error:'Razorpay keys and webhook secret are not configured yet.'});
-    const receipt=`pv_${Date.now().toString(36)}_${req.user.id.replace(/-/g,'').slice(0,8)}`;
-    const order=await razorpay.createOrder({amount:PLAN_AMOUNT,currency:PLAN_CURRENCY,receipt,userId:req.user.id});
-    await store.createPendingPayment({orderId:order.id,userId:req.user.id,amount:PLAN_AMOUNT,currency:PLAN_CURRENCY,receipt});
-    res.status(201).json({ok:true,checkout:{key:razorpay.keyId,orderId:order.id,amount:PLAN_AMOUNT,currency:PLAN_CURRENCY,name:'PlayVerse',description:'30-day Host Pass',prefill:{email:req.user.email},theme:{color:'#7957ff'}}});
-  }catch(error){console.error('[payment-order]',error);res.status(502).json({ok:false,error:'Could not start the payment. No money was charged.'});}
-});
-app.post('/api/payments/verify',paymentLimiter,requireUser,async(req,res)=>{
-  try{
-    const orderId=String(req.body?.razorpay_order_id||''),paymentId=String(req.body?.razorpay_payment_id||''),signature=String(req.body?.razorpay_signature||'');
-    if(!/^order_[A-Za-z0-9]+$/.test(orderId)||!/^pay_[A-Za-z0-9]+$/.test(paymentId)||!/^[a-f0-9]{64}$/i.test(signature))return res.status(400).json({ok:false,error:'Invalid payment response.'});
-    const local=await store.getPaymentByOrderId(orderId);
-    if(!local||local.userId!==req.user.id)return res.status(404).json({ok:false,error:'Payment order was not found.'});
-    if(!razorpay.verifyCheckoutSignature({orderId:local.orderId,paymentId,signature}))return res.status(400).json({ok:false,error:'Payment verification failed.'});
-    const payment=await razorpay.fetchPayment(paymentId);
-    if(payment.order_id!==local.orderId||Number(payment.amount)!==local.amount||payment.currency!==local.currency)return res.status(400).json({ok:false,error:'Payment details did not match the order.'});
-    if(payment.status!=='captured')return res.status(202).json({ok:true,pending:true,message:'Payment received and awaiting capture. Access will activate automatically.'});
-    const result=await store.activateSubscription({orderId:local.orderId,paymentId});
-    res.json({ok:true,user:publicUser(result.user),alreadyActivated:result.alreadyActivated});
-  }catch(error){console.error('[payment-verify]',error);res.status(502).json({ok:false,error:'Payment is being checked. Access will activate automatically after confirmation.'});}
-});
-app.get('/api/payments/status',requireUser,async(req,res)=>{
-  const orderId=String(req.query.order_id||''),payment=await store.getPaymentByOrderId(orderId);
-  if(!payment||payment.userId!==req.user.id)return res.status(404).json({ok:false,error:'Order not found.'});
-  const user=await store.getUserById(req.user.id);res.json({ok:true,status:payment.status,user:publicUser(user)});
-});
-
-app.use(express.static(PUBLIC_DIR,{maxAge:isProduction?'1h':0,etag:true}));
-app.get('/health',(_q,res)=>res.json({ok:true,version:VERSION,database:store.isPersistent()?'persistent':'temporary',payments:store.isPersistent()&&razorpay.isConfigured()?'ready':'setup-required'}));
-app.get('/config',(_q,res)=>res.json({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],settings:publicSettings(),reconnectGraceMs:RECONNECT_GRACE_MS}));
-app.get('/api/public-config',(_q,res)=>res.json({ok:true,business,plan:{amount:PLAN_AMOUNT,currency:PLAN_CURRENCY,days:PLAN_DAYS,formatted:'₹49'},paymentReady:store.isPersistent()&&razorpay.isConfigured()}));
+app.use(express.static(PUBLIC_DIR));
+app.get('/health',(_q,res)=>res.json({ok:true,version:'9.0.0'}));
+app.get('/config',(_q,res)=>res.json({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],settings:publicSettings()}));
 app.get('/api/stickers',(_q,res)=>res.json({ok:true,stickers:publicStickers()}));
-app.get('/api/rooms',(_q,res)=>res.json({ok:true,rooms:[]}));
+app.get('/api/rooms',(_q,res)=>res.json({ok:true,rooms:lobbyRooms()}));
 app.get('/admin',(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'admin.html')));
 app.get(['/snakes','/tic-tac-toe','/word-search'],(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,'index.html')));
-for(const [route,file] of Object.entries({'/terms':'terms.html','/privacy':'privacy.html','/refund-policy':'refund-policy.html','/contact':'contact.html','/shipping-policy':'shipping-policy.html','/pricing':'pricing.html','/data-safety':'data-safety.html','/delete-account':'delete-account.html'}))app.get(route,(_q,res)=>res.sendFile(path.join(PUBLIC_DIR,file)));
-
-app.get('/api/admin/dashboard',requireAdmin,(_q,res)=>res.json({ok:true,settings:publicSettings(),stickers,rooms:[...rooms.values()].map(r=>({code:r.code,game:r.activeGame,ownerUserId:r.ownerUserId,players:r.players.map(p=>({name:p.name,connected:p.connected!==false}))}))}));
-app.put('/api/admin/settings',requireAdmin,(req,res)=>{
+app.get('/api/admin/dashboard',(_q,res)=>res.json({ok:true,settings:publicSettings(),stickers,rooms:[...rooms.values()].map(r=>({code:r.code,game:r.activeGame,players:r.players.map(p=>p.name)}))}));
+app.put('/api/admin/settings',(req,res)=>{
   const b=req.body||{};
   settings={...settings,maxPlayers:Math.round(clamp(b.maxPlayers,2,6)),minPlayers:Math.round(clamp(b.minPlayers,2,6)),exactRollToWin:!!b.exactRollToWin,extraTurnOnSix:!!b.extraTurnOnSix,stickerPopupMs:Math.round(clamp(b.stickerPopupMs,1000,6000)),stickerCooldownMs:Math.round(clamp(b.stickerCooldownMs,300,5000)),soundDefaultOn:b.soundDefaultOn!==false};
   if(settings.minPlayers>settings.maxPlayers)settings.minPlayers=settings.maxPlayers;
   io.emit('game:settings',publicSettings()); broadcastLobby(); res.json({ok:true,settings,persistent:false});
 });
-app.patch('/api/admin/stickers/:id',requireAdmin,(req,res)=>{
+app.patch('/api/admin/stickers/:id',(req,res)=>{
   const s=stickers.find(x=>x.id===req.params.id); if(!s)return res.status(404).json({ok:false});
   if(typeof req.body.name==='string')s.name=cleanName(req.body.name); if(typeof req.body.enabled==='boolean')s.enabled=req.body.enabled;
   io.emit('stickers:update',publicStickers()); res.json({ok:true,sticker:s,persistent:false});
 });
 
-io.use(async(socket,next)=>{
-  try{
-    const token=cookie.parse(socket.request.headers.cookie||'')[SESSION_COOKIE]||'';
-    socket.data.user=token?await store.getUserBySession(hashToken(token)):null;next();
-  }catch(error){next(error);}
-});
-
 io.on('connection',socket=>{
-  socket.emit('game:settings',publicSettings());socket.emit('stickers:update',publicStickers());
+  socket.emit('game:settings',publicSettings()); socket.emit('stickers:update',publicStickers()); socket.emit('lobby:update',{rooms:lobbyRooms()});
 
-  socket.on('room:create',async(payload={},ack=()=>{})=>{
+  socket.on('room:create',(payload={},ack=()=>{})=>{
     try{
-      const user=socket.data.user?await store.getUserById(socket.data.user.id):null;
-      if(!user)return ack({ok:false,error:'Sign in as a host first.',code:'AUTH_REQUIRED'});
-      if(!subscriptionInfo(user).active)return ack({ok:false,error:'An active ₹49 Host Pass is required.',code:'SUBSCRIPTION_REQUIRED'});
-      leaveRoom(socket);
-      for(const existing of [...rooms.values()])if(existing.ownerUserId===user.id)closeRoom(existing,'The host created a new room.');
-      const c=code(),reconnectToken=crypto.randomBytes(24).toString('base64url');
-      const p={id:socket.id,reconnectToken,connected:true,name:cleanName(payload.name||user.displayName),colorIndex:0,position:1};
-      const r=initRoom(c,p,user.id);rooms.set(c,r);socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;socket.data.reconnectToken=reconnectToken;
-      ack({ok:true,room:pubRoom(r),resumeToken:reconnectToken});emitRoom(r);
-    }catch(e){console.error('[room-create]',e);ack({ok:false,error:'Could not create room.'});}
+      leaveRoom(socket); const c=code(); const p={id:socket.id,name:cleanName(payload.name),colorIndex:0,position:1}; const r=initRoom(c,p);
+      rooms.set(c,r); socket.join(c); socket.data.roomCode=c; socket.data.playerName=p.name; ack({ok:true,room:pubRoom(r)}); emitRoom(r); broadcastLobby();
+    }catch(e){ console.error(e); ack({ok:false,error:'Could not create room.'}); }
   });
   socket.on('room:join',(payload={},ack=()=>{})=>{
     const c=String(payload.roomId||payload.code||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6),r=rooms.get(c);
     if(!r)return ack({ok:false,error:'Room not found.'}); if(r.players.length>=settings.maxPlayers)return ack({ok:false,error:'Room is full.'});
-    leaveRoom(socket);const reconnectToken=crypto.randomBytes(24).toString('base64url');
-    const p={id:socket.id,reconnectToken,connected:true,name:cleanName(payload.name),colorIndex:r.players.length%6,position:1};r.players.push(p);
-    socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;socket.data.reconnectToken=reconnectToken;
-    socket.emit('rtc:peers',{peers:r.players.filter(x=>x.id!==socket.id&&x.connected!==false).map(x=>x.id)});socket.to(c).emit('rtc:peer-joined',{peerId:socket.id});
+    leaveRoom(socket); const p={id:socket.id,name:cleanName(payload.name),colorIndex:r.players.length%6,position:1}; r.players.push(p);
+    socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;
+    socket.emit('rtc:peers',{peers:r.players.filter(x=>x.id!==socket.id).map(x=>x.id)}); socket.to(c).emit('rtc:peer-joined',{peerId:socket.id});
     if(r.activeGame==='wordsearch'&&r.players.length>=2&&!r.wordsearch.turnDeadline) beginWordTurn(r);
-    notice(r,`${p.name} joined.`);ack({ok:true,room:pubRoom(r),resumeToken:reconnectToken});emitRoom(r);
-  });
-  socket.on('room:resume',(payload={},ack=()=>{})=>{
-    const c=String(payload.code||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6),token=String(payload.resumeToken||'').slice(0,80),r=rooms.get(c);
-    if(!r||!token)return ack({ok:false,error:'Room session expired.'});
-    const p=r.players.find(player=>player.reconnectToken===token);if(!p)return ack({ok:false,error:'Room session expired.'});
-    clearDisconnectTimer(c,token);const oldId=p.id,oldSocket=io.sockets.sockets.get(oldId);
-    if(oldSocket&&oldSocket.id!==socket.id){oldSocket.data.suppressDisconnect=true;oldSocket.disconnect(true);}
-    remapPlayerId(r,oldId,socket.id);p.id=socket.id;p.connected=true;p.disconnectedAt=null;
-    socket.join(c);socket.data.roomCode=c;socket.data.playerName=p.name;socket.data.reconnectToken=token;
-    socket.emit('rtc:peers',{peers:r.players.filter(x=>x.id!==socket.id&&x.connected!==false).map(x=>x.id)});socket.to(c).emit('rtc:peer-joined',{peerId:socket.id});
-    notice(r,`${p.name} reconnected.`);ack({ok:true,room:pubRoom(r),resumeToken:token});emitRoom(r);
+    notice(r,`${p.name} joined.`); ack({ok:true,room:pubRoom(r)}); emitRoom(r); broadcastLobby();
   });
   socket.on('room:leave',()=>leaveRoom(socket));
 
@@ -570,31 +323,7 @@ io.on('connection',socket=>{
   });
 
   socket.on('rtc:signal',(payload={})=>{const r=roomOf(socket);if(!r)return;const target=io.sockets.sockets.get(payload.to);if(target&&target.data.roomCode===r.code)target.emit('rtc:signal',{from:socket.id,data:payload.data});});
-  socket.on('disconnect',()=>scheduleDisconnect(socket));
+  socket.on('disconnect',()=>leaveRoom(socket));
 });
 
-app.use((error,_req,res,_next)=>{
-  console.error('[request]',error);
-  if(res.headersSent)return;
-  res.status(500).json({ok:false,error:'Something went wrong. Please try again.'});
-});
-
-async function start(){
-  await store.init();
-  return new Promise(resolve=>server.listen(PORT,()=>{console.log(`PlayVerse v${VERSION} running on ${PORT}`);resolve(server);}));
-}
-
-async function shutdown(){
-  for(const room of [...rooms.values()])closeRoom(room,'Server is restarting. Reconnect shortly.');
-  io.disconnectSockets(true);
-  await new Promise(resolve=>server.close(resolve));
-  await store.close();
-}
-
-if(require.main===module){
-  start().catch(error=>{console.error('[startup]',error);process.exitCode=1;});
-  process.once('SIGTERM',()=>shutdown().finally(()=>process.exit(0)));
-  process.once('SIGINT',()=>shutdown().finally(()=>process.exit(0)));
-}
-
-module.exports={app,server,start,shutdown,rooms};
+server.listen(PORT,()=>console.log(`PlayVerse v9 running on ${PORT}`));

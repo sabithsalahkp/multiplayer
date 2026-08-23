@@ -21,71 +21,34 @@
     <section id="landing" class="landing lobby-landing">
       <div class="hero-copy lobby-hero">
         <div class="logo">P</div>
-        <span class="eyebrow">PRIVATE LIVE MULTIPLAYER</span>
+        <span class="eyebrow">LIVE MULTIPLAYER</span>
         <h1>Play<span>Verse</span></h1>
-        <p>One host creates a private room. Friends join free with the six-character code.</p>
-        <div class="price-line"><b>₹49</b><span>30-day Host Pass</span><i></i><span>Guests play free</span></div>
+        <p>Create a room or tap your friend's room below. No codes, passwords or accounts.</p>
       </div>
 
       <div class="lobby-card glass">
         <div class="connection"><i></i><b id="connectionText">Connecting…</b></div>
-        <div class="entry-tabs" role="tablist" aria-label="Choose how to play">
-          <button id="joinTabBtn" class="active" type="button" role="tab" aria-controls="joinPanel" aria-selected="true">Join a room</button>
-          <button id="hostTabBtn" type="button" role="tab" aria-controls="hostPanel" aria-selected="false">Host a room</button>
-        </div>
-
-        <section id="joinPanel" class="entry-panel" role="tabpanel">
-          <div class="panel-heading"><b>Join free</b><small>No account or subscription needed</small></div>
-          <label class="name-field"><span>Your name</span><input id="guestNameInput" maxlength="20" autocomplete="nickname" placeholder="Enter your name" /></label>
-          <label class="name-field code-field"><span>Room code</span><input id="roomCodeInput" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123" /></label>
-          <button id="joinBtn" class="primary" disabled type="button">Join Room</button>
-        </section>
-
-        <section id="hostPanel" class="entry-panel hidden" role="tabpanel">
-          <div class="plan-card">
-            <div><span>HOST PASS</span><b>₹49 <small>/ 30 days</small></b></div>
-            <ul><li>Create private rooms</li><li>All three games + voice</li><li>Friends join at no charge</li></ul>
-          </div>
-
-          <div id="authGate">
-            <div class="auth-switch">
-              <button id="loginModeBtn" class="active" type="button">Sign in</button>
-              <button id="registerModeBtn" type="button">Create account</button>
-            </div>
-            <form id="authForm" novalidate>
-              <label id="displayNameRow" class="name-field hidden"><span>Display name</span><input id="authDisplayName" maxlength="30" autocomplete="name" placeholder="Your name" /></label>
-              <label class="name-field"><span>Email address</span><input id="authEmail" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com" required /></label>
-              <label class="name-field"><span>Password</span><input id="authPassword" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="Minimum 8 characters" required /></label>
-              <label id="legalAcceptRow" class="legal-check hidden"><input id="legalAccept" type="checkbox" /><span>I agree to the <a href="/terms" target="_blank">Terms</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</span></label>
-              <button id="authSubmitBtn" class="primary" type="submit">Sign In</button>
-              <p id="authError" class="error" aria-live="polite"></p>
-            </form>
-          </div>
-
-          <div id="hostAccount" class="hidden">
-            <div class="account-row"><div><small>HOST ACCOUNT</small><b id="accountEmail">—</b></div><button id="logoutBtn" type="button">Sign out</button></div>
-            <div id="subscriptionStatus" class="subscription-status"><span></span><div><b id="planStatusText">No active pass</b><small id="planExpiryText">Subscribe to create a room</small></div></div>
-            <button id="subscribeBtn" class="payment-btn" type="button"><span>Get 30-day Host Pass</span><b>Pay ₹49</b></button>
-            <label class="name-field"><span>Host display name</span><input id="hostNameInput" maxlength="20" autocomplete="nickname" placeholder="Your room name" /></label>
-            <button id="createBtn" class="primary" disabled type="button">Create Private Room</button>
-            <a id="deleteAccountLink" class="delete-link" href="/delete-account">Delete my account</a>
-          </div>
-        </section>
-
-        <button id="installLandingBtn" class="install-btn hidden" type="button">Install PlayVerse</button>
+        <label class="name-field"><span>Your name</span><input id="nameInput" maxlength="20" autocomplete="nickname" placeholder="Enter your name" /></label>
+        <button id="createBtn" class="primary" disabled type="button">Create Room</button>
+        <button id="installLandingBtn" class="install-btn hidden" type="button">Install Game</button>
         <p id="landingError" class="error" aria-live="polite"></p>
-      </div>
 
-      <footer class="legal-footer">
-        <span>PlayVerse by <b data-business-name>Quartz Web Solutions</b></span>
-        <nav><a href="/pricing">Pricing</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund-policy">Refunds</a><a href="/shipping-policy">Shipping</a><a href="/contact">Contact</a></nav>
-      </footer>
+        <div class="rooms-head">
+          <div><b>Available rooms</b><small>Tap a player name to join</small></div>
+          <button id="roomsRefreshBtn" class="refresh-btn" type="button" aria-label="Refresh available rooms">↻</button>
+        </div>
+        <div id="roomsList" class="rooms-list" aria-live="polite"></div>
+        <div id="roomsEmpty" class="rooms-empty">
+          <span>◎</span>
+          <b>No rooms yet</b>
+          <small>Create one and your friend will see it here instantly.</small>
+        </div>
+      </div>
     </section>
 
     <section id="gameShell" class="game-shell hidden">
       <header class="topbar glass">
         <div class="brand-mini"><div class="logo small">P</div><div><b>PlayVerse</b><small id="activeGameLabel">Snakes & Ladders</small></div></div>
-        <button id="roomCodeBtn" class="room-chip" type="button" aria-label="Copy room code"><span>ROOM CODE</span><b id="roomCodeText">------</b><small>COPY</small></button>
         <div class="top-actions">
           <button id="installTopBtn" class="icon-btn hidden" type="button"><span>↓</span><b>INSTALL</b></button>
           <button id="micBtn" class="icon-btn" type="button"><span>🎙</span><b>MIC OFF</b></button>
@@ -94,7 +57,6 @@
           <button id="leaveBtn" class="icon-btn danger" type="button"><span>↗</span><b>LEAVE</b></button>
         </div>
       </header>
-      <div id="reconnectBanner" class="reconnect-banner hidden" role="status">Connection lost. Your place is saved for two minutes while we reconnect.</div>
 
       <div class="workspace">
         <aside class="sidebar glass">

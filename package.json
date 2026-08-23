@@ -1,29 +1,17 @@
 {
-  "name": "playverse-host-pass",
-  "version": "10.0.0",
+  "name": "playverse-premium-v9",
+  "version": "9.0.0",
   "private": true,
-  "description": "Installable private-room multiplayer games with verified host subscriptions and free guest joining",
+  "description": "Installable public-room multiplayer Snakes & Ladders, Tic Tac Toe and 60-second Word Search with live voice",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "check": "node scripts/check-project.js",
-    "test": "node --test tests/*.test.js"
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "cookie": "^1.0.2",
     "express": "^5.1.0",
-    "express-rate-limit": "^8.1.0",
-    "helmet": "^8.1.0",
-    "pg": "^8.16.3",
-    "razorpay": "^2.9.6",
     "socket.io": "^4.8.1"
-  },
-  "devDependencies": {
-    "socket.io-client": "^4.8.1",
-    "supertest": "^7.1.4"
   }
 }
