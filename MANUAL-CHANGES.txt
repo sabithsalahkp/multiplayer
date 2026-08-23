@@ -1,28 +1,27 @@
-PLAYVERSE V9 — MANUAL STEPS
+PLAYVERSE V10 — REQUIRED LIVE SETUP
 
-1. Extract this ZIP.
-2. Replace the old files in your GitHub repository with everything from this folder.
-3. Commit/push.
-4. Render auto-deploys. Wait until it says Live.
-5. Open your Render URL.
+1. Deploy this folder as a Node web service.
+2. Connect PostgreSQL and set DATABASE_URL.
+3. Set the real PUBLIC_BUSINESS_NAME, PUBLIC_SUPPORT_EMAIL,
+   PUBLIC_SUPPORT_PHONE and PUBLIC_BUSINESS_ADDRESS.
+4. Add Razorpay TEST Key ID, Key Secret and Webhook Secret.
+5. In Razorpay, set webhook URL:
+   https://YOUR-DOMAIN/api/payments/webhook
+6. Enable payment.captured, payment.failed and order.paid.
+7. Enable automatic payment capture.
+8. Create a host account and complete one Razorpay test payment.
+9. Confirm /health says database=persistent and payments=ready.
+10. Submit the website and policy URLs to Razorpay.
+11. After live approval, replace all TEST keys with LIVE keys.
 
-THAT IS ALL.
+PLAY FLOW
+- Host signs in and pays ₹49 for 30 days.
+- Host creates a private room and copies its 6-character code.
+- Friend opens the same site, enters a name and code, and joins free.
+- Brief minimising/disconnects keep the player's place for 2 minutes.
 
-No room code.
-No password.
-No database.
-No environment variables.
-No persistent disk.
-
-HOW TO PLAY WITH A FRIEND
-- You open the site, enter your name, tap Create Room.
-- Your friend opens the same site, enters their name, sees your name under Available rooms, and taps it.
-- They join immediately.
-
-INSTALL
-- On supported Chrome, use the Install Game button when it appears.
-- You can also use Chrome's Install app / Add to Home screen option.
-
-CHECK DEPLOYMENT
-Open: /health
-Expected version: 9.0.0
+PLAY STORE
+- Do not upload this ZIP directly.
+- Read android/PLAY-STORE-SETUP.md.
+- Razorpay-only digital billing inside a Play-distributed app needs the
+  applicable Google alternative-billing enrolment and APIs in India.

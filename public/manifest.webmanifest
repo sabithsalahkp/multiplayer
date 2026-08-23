@@ -1,13 +1,22 @@
 {
   "name": "PlayVerse",
   "short_name": "PlayVerse",
-  "description": "Multiplayer Snakes & Ladders, Tic Tac Toe and Word Search with live voice.",
+  "id": "/",
+  "description": "Private multiplayer Snakes & Ladders, Tic Tac Toe and Word Search with live voice.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#070b14",
   "theme_color": "#090d18",
   "orientation": "any",
+  "categories": ["games", "entertainment", "social"],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "shortcuts": [
+    {"name":"Join a Room","short_name":"Join","url":"/?mode=join","icons":[{"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png"}]},
+    {"name":"Host a Room","short_name":"Host","url":"/?mode=host","icons":[{"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png"}]}
+  ],
   "icons": [
     {"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
     {"src":"/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
