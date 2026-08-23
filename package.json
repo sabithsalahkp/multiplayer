@@ -1,0 +1,17 @@
+{
+  "name": "playverse-premium-v11",
+  "version": "11.0.0",
+  "private": true,
+  "description": "Installable public-room multiplayer games with reliable Socket.IO relayed live voice, popup chat and image meme stickers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
